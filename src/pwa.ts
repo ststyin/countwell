@@ -2,6 +2,7 @@ export interface PwaState {
   installAvailable: boolean;
   updateAvailable: boolean;
   offline: boolean;
+  offlineReady: boolean;
   isStandalone: boolean;
   installed: boolean;
   ios: boolean;
@@ -19,6 +20,7 @@ const serverState: PwaState = {
   installAvailable: false,
   updateAvailable: false,
   offline: false,
+  offlineReady: false,
   isStandalone: false,
   installed: false,
   ios: false,
@@ -31,6 +33,7 @@ let deferredPrompt: InstallPromptEvent | null = null;
 let registration: ServiceWorkerRegistration | null = null;
 let registrationPromise: Promise<ServiceWorkerRegistration | null> | null = null;
 let reloadForUpdate = false;
+let watchedController: ServiceWorker | null = null;
 const listeners = new Set<() => void>();
 
 function update(next: Partial<PwaState>) {
@@ -38,6 +41,25 @@ function update(next: Partial<PwaState>) {
   if ((Object.keys(candidate) as (keyof PwaState)[]).every(key => candidate[key] === state[key])) return;
   state = candidate;
   listeners.forEach(listener => listener());
+}
+
+function reflectControllerState() {
+  const offlineReady = navigator.serviceWorker.controller?.state === 'activated';
+  update({ offlineReady, ...(offlineReady ? { registrationError: false } : {}) });
+  if (offlineReady && reloadForUpdate) {
+    reloadForUpdate = false;
+    window.location.reload();
+  }
+}
+
+function watchController() {
+  const controller = navigator.serviceWorker.controller;
+  if (watchedController !== controller) {
+    watchedController?.removeEventListener('statechange', reflectControllerState);
+    watchedController = controller;
+    controller?.addEventListener('statechange', reflectControllerState);
+  }
+  reflectControllerState();
 }
 
 if (browser) {
@@ -65,9 +87,8 @@ if (browser) {
     update({ installAvailable: false, installed: true });
   });
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (reloadForUpdate) window.location.reload();
-    });
+    navigator.serviceWorker.addEventListener('controllerchange', watchController);
+    watchController();
   }
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') void registration?.update().catch(() => undefined);
@@ -97,6 +118,7 @@ export function registerPwa(): Promise<ServiceWorkerRegistration | null> {
     scope: '/', updateViaCache: 'none',
   }).then(result => {
     registration = result;
+    void navigator.serviceWorker.ready.then(watchController).catch(() => undefined);
     if (result.waiting && navigator.serviceWorker.controller) update({ updateAvailable: true });
     const watchInstallingWorker = () => {
       const installing = result.installing;
@@ -111,7 +133,7 @@ export function registerPwa(): Promise<ServiceWorkerRegistration | null> {
     watchInstallingWorker();
     return result;
   }).catch(() => {
-    update({ registrationError: true });
+    update({ registrationError: !state.offlineReady });
     return null;
   });
   return registrationPromise;

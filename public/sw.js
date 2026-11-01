@@ -1,4 +1,5 @@
 /* Only the public demo application shell is cached. Never cache ledger API data. */
+// The production build replaces this value with a hash of its application assets.
 const SHELL_VERSION = 'v1';
 const CACHE_PREFIX = 'countwell-shell-';
 const CACHE_NAME = `${CACHE_PREFIX}${SHELL_VERSION}`;
@@ -65,14 +66,16 @@ self.addEventListener('fetch', event => {
   if (request.mode === 'navigate' && ['/', '/index.html'].includes(url.pathname)) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);
+      // Publish one complete precached build at a time. Fetching a newer HTML
+      // here could replace the shell before its referenced assets are available.
+      const shell = await cache.match('/');
+      if (shell) return shell;
       try {
-        const response = await fetch(request);
-        if (canCache(response) && /text\/html/i.test(response.headers.get('content-type') || '')) {
-          await cache.put('/', response.clone());
-        }
-        return response;
+        // Recovery when browser storage was evicted: let the network open the
+        // app, but never mix an individually fetched HTML into this build cache.
+        return await fetch(request);
       } catch {
-        return await cache.match('/') || await cache.match('/offline.html')
+        return await cache.match('/offline.html')
           || new Response('Countwell 暂时离线，请连接网络后重试。', {
             status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' },
           });
