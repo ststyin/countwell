@@ -16,6 +16,7 @@ export default defineConfig({
     apply: 'build',
     closeBundle() {
       const hash = createHash('sha256')
+      hash.update(readFileSync('public/sw.js'))
       for (const file of builtFiles('dist').filter(file => file !== join('dist', 'sw.js'))) {
         hash.update(file).update(readFileSync(file))
       }

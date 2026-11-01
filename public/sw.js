@@ -87,7 +87,10 @@ self.addEventListener('fetch', event => {
   if (isStaticAsset(url)) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);
-      const cached = await cache.match(request);
+      // These allowlisted public assets have one representation per URL. A
+      // crossorigin module request can carry Origin while precaching did not;
+      // Vite's Vary: Origin must not hide the already cached JS/CSS offline.
+      const cached = await cache.match(request, { ignoreVary: true });
       if (cached) return cached;
       const response = await fetch(request);
       if (canCache(response)) await cache.put(request, response.clone());
