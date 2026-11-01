@@ -5,6 +5,7 @@ import { DisplayContext } from './components/ui'
 import OverviewPage from './pages/OverviewPage'
 import TransactionsPage from './pages/TransactionsPage'
 import AccountsPage from './pages/AccountsPage'
+import SettingsPage from './pages/SettingsPage'
 import { monthLabel, shiftMonth } from './lib/format'
 import { routeHref, useRoute } from './lib/route'
 import type { Page } from './lib/route'
@@ -51,6 +52,13 @@ export default function App() {
   }, [sourceOpen])
 
   const go = (page: Page, filters = {}) => navigate({ page, kind: 'all', search: '', account: '', ...filters })
+  const pageContent = route.page === 'overview'
+    ? <OverviewPage ledger={ledger} month={route.month} currency={currency} onNavigate={go} />
+    : route.page === 'transactions'
+      ? <TransactionsPage ledger={ledger} route={route} currency={currency} onFilter={navigate} />
+      : route.page === 'accounts'
+        ? <AccountsPage ledger={ledger} month={route.month} currency={currency} onAccount={account => go('transactions', { account })} />
+        : <SettingsPage ledger={ledger} theme={theme} onTheme={setTheme} hidden={hidden} onPrivacy={setHidden} onSource={() => setSourceOpen(true)} />
 
   return <DisplayContext.Provider value={{ hidden, currency }}>
     <div className="app-shell">
@@ -67,7 +75,7 @@ export default function App() {
           {pwa.offline && <div className="notice"><WifiOff size={17} /><span>当前离线，正在查看已保存的演示账本。</span></div>}
           {pwa.updateAvailable && <div className="notice"><span>新版本已准备好。</span><button className="text-action" onClick={() => pwa.applyUpdate()}>刷新更新 <ArrowUpRight size={15} /></button></div>}
           <header className="page-header"><div><p className="page-eyebrow">{route.page === 'overview' ? 'A LITTLE CLARITY, EVERY DAY' : route.page === 'accounts' ? 'YOUR MONEY, AT A GLANCE' : route.page === 'transactions' ? 'EVERY LITTLE MOMENT' : 'MAKE IT YOURS'}</p><h1 className="screen-heading">{active.title}</h1><p className="page-subtitle">{route.page === 'overview' ? '看清钱的来处，也了解生活的去向。' : route.page === 'transactions' ? '消费、收入、退款与转账，清清楚楚。' : route.page === 'accounts' ? '手头的钱、投资和欠款，都在这里。' : '用你习惯的方式，和自己的账本相处。'}</p></div>{route.page !== 'settings' && <div className="month-control"><button className="icon-button" aria-label="上个月" onClick={() => navigate({ month: shiftMonth(route.month, -1) })}><ChevronLeft size={17} /></button><label className="month-label"><span>{monthLabel(route.month)}</span><input type="month" className="month-input" aria-label="查询月份" value={route.month} min="1900-01" max="9998-12" onChange={e => { if (e.target.value) navigate({ month: e.target.value }) }} /></label><button className="icon-button" aria-label="下个月" onClick={() => navigate({ month: shiftMonth(route.month, 1) })}><ChevronRight size={17} /></button></div>}</header>
-          {route.page === 'overview' ? <OverviewPage ledger={ledger} month={route.month} currency={currency} onNavigate={go} /> : route.page === 'transactions' ? <TransactionsPage ledger={ledger} route={route} currency={currency} onFilter={navigate} /> : route.page === 'settings' ? <section className="panel settings-section"><h2>你的偏好</h2><div className="setting-row"><div><strong>外观</strong><p>深色更安静，浅色更清晰。</p></div><div className="segmented"><button aria-pressed={theme === 'dark'} onClick={() => setTheme('dark')}>深色</button><button aria-pressed={theme === 'light'} onClick={() => setTheme('light')}>浅色</button></div></div><div className="setting-row"><div><strong>账本原文</strong><p>纯文本 Beancount，一份文件就能带走。</p></div><button className="button" onClick={() => setSourceOpen(true)}>查看账本 <ArrowUpRight size={15} /></button></div></section> : <AccountsPage ledger={ledger} month={route.month} currency={currency} onAccount={account => go('transactions', { account })} />}
+          {pageContent}
           <footer className="page-footer"><span><span className="footer-dot" />虚构演示账本 · 截至所选月末</span><button onClick={() => setSourceOpen(true)}>由 Beancount 纯文本账本驱动 <ArrowUpRight size={13} /></button></footer>
         </div>
       </main>
