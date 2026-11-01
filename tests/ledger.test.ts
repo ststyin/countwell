@@ -42,6 +42,17 @@ describe('bundled fictional ledger', () => {
     expect(getAccounts(ledger,'2026-10','USD').cash).toBe('1159.9');
   });
 
+  it('counts transactions and pending items in the selected currency, matching the visible list', () => {
+    const ledger = loadDemoLedger();
+    for (const currency of ['CNY','USD']) {
+      const report = getOverview(ledger,'2026-10',currency);
+      const transactions = getTransactions(ledger,{month:'2026-10',currency});
+      expect(report.transactionCount).toBe(transactions.length);
+      expect(report.pendingCount).toBe(transactions.filter(transaction => transaction.flag === '!').length);
+    }
+    expect(getOverview(ledger,'2026-10','USD')).toMatchObject({transactionCount:2,pendingCount:0});
+  });
+
   it('preserves snapshot data across reports, search, account filters, and historical queries', () => {
     const ledger = loadDemoLedger();
     const before = JSON.stringify(ledger);
@@ -94,6 +105,7 @@ describe('friendly presentation over double-entry data', () => {
     expect(rows.find(item => item.narration === 'Refund')).toMatchObject({kind:'refund',direction:'in',amount:'20'});
     expect(rows.find(item => item.narration === 'Salary')).toMatchObject({kind:'income',direction:'in',amount:'100'});
     expect(rows.find(item => item.narration === 'Card repayment')).toMatchObject({kind:'transfer',direction:'internal',amount:'50'});
+    expect(rows.find(item => item.narration === 'Card repayment')).toMatchObject({fromAccount:'Assets:Bank',toAccount:'Liabilities:Card'});
   });
 
   it('shows cash and money owed separately, without changing raw liability signs', () => {
@@ -169,6 +181,23 @@ describe('holdings and exact amounts', () => {
 });
 
 describe('bounded demo reader', () => {
+  it('rejects multiple independent currencies in one activity instead of adding unlike units', () => {
+    expect(() => fixture(`
+2026-10-01 * "Mixed currency expense"
+  Expenses:Food 80 CNY
+  Assets:Bank -80 CNY
+  Expenses:Food 20 USD
+  Assets:Bank -20 USD
+`)).toThrow('多币种');
+    expect(() => fixture(`
+2026-10-01 * "Mixed currency transfer"
+  Assets:Cash 80 CNY
+  Assets:Bank -80 CNY
+  Assets:Cash 20 USD
+  Assets:Bank -20 USD
+`)).toThrow('多币种');
+  });
+
   it('fails closed for unbalanced postings, unknown directives, plugins, and missing amounts', () => {
     expect(() => fixture('\n2026-10-01 * "Bad"\n  Assets:Bank 2 CNY\n  Income:Salary -1 CNY\n')).toThrow('不平衡');
     expect(() => fixture('\nplugin "anything"\n')).toThrow('未知或不支持');

@@ -39,6 +39,9 @@ function totalForMonth(ledger: Ledger, month: string, currency: string) {
 export function getOverview(ledger: Ledger, month: string, currency = 'CNY'): Overview {
   const {days,previous} = monthBounds(month);
   const current = totalForMonth(ledger,month,currency);
+  const visibleTransactions = current.transactions
+    .map(transaction => activity(ledger,transaction))
+    .filter(transaction => transaction.currency === currency);
   const before = previous.startsWith('0000') ? {income:new D(0),expense:new D(0)} : totalForMonth(ledger,previous,currency);
   const daily = new Map(Array.from({length:days},(_,index) => [`${month}-${String(index+1).padStart(2,'0')}`,new D(0)]));
   const expenses = new Map<string,Decimal>();
@@ -60,7 +63,7 @@ export function getOverview(ledger: Ledger, month: string, currency = 'CNY'): Ov
     month,currency,currencies:moneyCurrencies(ledger),income:text(current.income),expense:text(current.expense),surplus:text(current.income.minus(current.expense)),
     previousIncome:text(before.income),previousExpense:text(before.expense),previousSurplus:text(before.income.minus(before.expense)),
     incomeChange:change(current.income,before.income),expenseChange:change(current.expense,before.expense),
-    transactionCount:current.transactions.length,pendingCount:current.transactions.filter(transaction => transaction.flag === '!').length,
+    transactionCount:visibleTransactions.length,pendingCount:visibleTransactions.filter(transaction => transaction.flag === '!').length,
     dailyExpenses:[...daily].map(([date,amount]) => ({date,amount:text(amount)})),categories:categoryRows(expenses,current.expense),incomeCategories:categoryRows(incomes,current.income),
   };
 }
@@ -72,6 +75,7 @@ function activity(ledger: Ledger, transaction: LedgerTransaction): Activity {
   const assets = transaction.postings.filter(posting => root(posting) === 'Assets');
   const outgoing = assets.find(posting => new D(posting.amount).isNegative());
   const incoming = assets.find(posting => new D(posting.amount).isPositive());
+  const repaymentTarget = transaction.postings.find(posting => root(posting) === 'Liabilities' && new D(posting.amount).isPositive());
   let kind:Activity['kind'];
   let direction:Activity['direction'];
   let category:string;
@@ -104,7 +108,7 @@ function activity(ledger: Ledger, transaction: LedgerTransaction): Activity {
     if (transaction.postings.some(posting => root(posting) === 'Equity')) category = '期初余额';
   }
   const representative = outgoing ?? incoming ?? transaction.postings[0];
-  return {...transaction,kind,direction,category,amount:text(amount),currency,account:representative.account,accountLabel:label(ledger,representative.account),fromAccount:outgoing?.account,toAccount:incoming?.account};
+  return {...transaction,kind,direction,category,amount:text(amount),currency,account:representative.account,accountLabel:label(ledger,representative.account),fromAccount:outgoing?.account,toAccount:incoming?.account ?? repaymentTarget?.account};
 }
 
 export function getTransactions(ledger: Ledger, query:TransactionQuery): Activity[] {

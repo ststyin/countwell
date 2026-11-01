@@ -47,6 +47,10 @@ export function parseDemoLedger(source: string, defaultMonth = '2026-10'): Ledge
       weights.set(unit, (weights.get(unit) ?? new D(0)).plus(weight));
     }
     if ([...weights.values()].some(value => !value.isZero())) throw new DemoLedgerError('交易分录不平衡，已拒绝生成报表', line);
+    // The demo's activity row has one amount and one currency. Keep this
+    // narrower contract explicit rather than adding unlike units or hiding a
+    // currency when a valid Beancount transaction contains independent legs.
+    if (weights.size > 1) throw new DemoLedgerError('演示不支持单笔多币种业务，请按币种拆分交易', line);
     ledger.transactions.push(current);
     current = null;
   };

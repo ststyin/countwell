@@ -65,9 +65,11 @@ option "operating_currency" "CNY"
   Assets:Alipay 2000 CNY
   Assets:WeChat 600 CNY
   Assets:Cash 300 CNY
-  Assets:Bank:USD 1200 USD
   Liabilities:Card -1800 CNY
   Equity:Opening -81100 CNY
+
+2026-08-01 * "期初余额" "虚构美元账户的初始余额"
+  Assets:Bank:USD 1200 USD
   Equity:Opening -1200 USD
 
 2026-08-05 * "房东" "月度房租"
