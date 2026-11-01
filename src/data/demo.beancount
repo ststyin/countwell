@@ -1,0 +1,407 @@
+; Countwell demonstration ledger. ALL people, accounts and transactions are fictional.
+; This bundled fixture intentionally uses the limited syntax understood by the TS demo.
+; Complete production Beancount compatibility requires the official loader.
+option "title" "Countwell 虚构演示账本"
+option "operating_currency" "CNY"
+
+2026-08-01 open Assets:Bank:Checking
+  display_name: "招商银行 · 储蓄卡"
+  countwell_role: "cash"
+2026-08-01 open Assets:Bank:Savings
+  display_name: "银行定期储蓄"
+  countwell_role: "cash"
+2026-08-01 open Assets:Alipay
+  display_name: "支付宝余额"
+  countwell_role: "cash"
+2026-08-01 open Assets:WeChat
+  display_name: "微信零钱"
+  countwell_role: "cash"
+2026-08-01 open Assets:Cash
+  display_name: "随身现金"
+  countwell_role: "cash"
+2026-08-01 open Assets:Bank:USD
+  display_name: "美元账户"
+  countwell_role: "cash"
+2026-08-01 open Assets:Cash:USD
+  display_name: "美元现金"
+  countwell_role: "cash"
+2026-08-01 open Assets:Investment:Index
+  display_name: "指数基金持仓"
+  countwell_role: "investment"
+2026-08-01 open Liabilities:Card
+  display_name: "信用卡待还"
+2026-08-01 open Equity:Opening
+  display_name: "期初权益"
+2026-08-01 open Income:Salary
+  display_name: "工资收入"
+2026-08-01 open Income:Freelance
+  display_name: "副业收入"
+2026-08-01 open Income:Interest
+  display_name: "利息收入"
+2026-08-01 open Expenses:Food
+  display_name: "餐饮美食"
+2026-08-01 open Expenses:Groceries
+  display_name: "日常购物"
+2026-08-01 open Expenses:Transport
+  display_name: "交通出行"
+2026-08-01 open Expenses:Housing
+  display_name: "居家住房"
+2026-08-01 open Expenses:Utilities
+  display_name: "生活缴费"
+2026-08-01 open Expenses:Shopping
+  display_name: "服饰数码"
+2026-08-01 open Expenses:Entertainment
+  display_name: "休闲娱乐"
+2026-08-01 open Expenses:Health
+  display_name: "医疗健康"
+2026-08-01 open Expenses:Travel
+  display_name: "旅行度假"
+
+2026-08-01 commodity CWINDEX
+
+2026-08-01 * "期初余额" "虚构账户的初始余额"
+  Assets:Bank:Checking 30000 CNY
+  Assets:Bank:Savings 50000 CNY
+  Assets:Alipay 2000 CNY
+  Assets:WeChat 600 CNY
+  Assets:Cash 300 CNY
+  Assets:Bank:USD 1200 USD
+  Liabilities:Card -1800 CNY
+  Equity:Opening -81100 CNY
+  Equity:Opening -1200 USD
+
+2026-08-05 * "房东" "月度房租"
+  Expenses:Housing 4200 CNY
+  Assets:Bank:Checking -4200 CNY
+
+2026-08-07 * "社区超市" "一周食材与日用品"
+  Expenses:Groceries 286.5 CNY
+  Assets:Alipay -286.5 CNY
+
+2026-08-09 * "城市地铁" "通勤交通"
+  Expenses:Transport 32 CNY
+  Assets:WeChat -32 CNY
+
+2026-08-11 * "小巷餐馆" "和朋友的晚餐"
+  Expenses:Food 128 CNY
+  Liabilities:Card -128 CNY
+
+2026-08-13 * "生活缴费" "水电燃气"
+  Expenses:Utilities 218.8 CNY
+  Assets:Bank:Checking -218.8 CNY
+
+2026-08-16 * "周末咖啡" "咖啡和甜点"
+  Expenses:Food 58 CNY
+  Assets:Alipay -58 CNY
+
+2026-08-18 * "书店" "阅读与学习"
+  Expenses:Entertainment 129 CNY
+  Liabilities:Card -129 CNY
+
+2026-08-21 * "生鲜店" "水果和蔬菜"
+  Expenses:Groceries 176.4 CNY
+  Assets:Alipay -176.4 CNY
+
+2026-08-23 * "电影院" "周末电影"
+  Expenses:Entertainment 89 CNY
+  Assets:WeChat -89 CNY
+
+2026-08-25 * "演示公司" "月度工资到账" #salary
+  Assets:Bank:Checking 18000 CNY
+  Income:Salary -18000 CNY
+
+2026-08-27 * "家庭聚餐" "周末家庭晚餐"
+  Expenses:Food 268 CNY
+  Liabilities:Card -268 CNY
+
+2026-08-29 * "出行平台" "晚归打车"
+  Expenses:Transport 46.8 CNY
+  Assets:Alipay -46.8 CNY
+
+2026-08-30 * "支付宝" "银行卡转入支付宝"
+  Assets:Alipay 1500 CNY
+  Assets:Bank:Checking -1500 CNY
+
+2026-08-15 * "指数基金" "定期买入，增加持仓" #investing
+  Assets:Investment:Index 100 CWINDEX {10 CNY}
+  Assets:Bank:Checking -1000 CNY
+
+2026-08-31 price CWINDEX 10.3 CNY
+
+2026-09-05 * "房东" "月度房租"
+  Expenses:Housing 4200 CNY
+  Assets:Bank:Checking -4200 CNY
+
+2026-09-07 * "社区超市" "一周食材与日用品"
+  Expenses:Groceries 286.5 CNY
+  Assets:Alipay -286.5 CNY
+
+2026-09-09 * "城市地铁" "通勤交通"
+  Expenses:Transport 32 CNY
+  Assets:WeChat -32 CNY
+
+2026-09-11 * "小巷餐馆" "和朋友的晚餐"
+  Expenses:Food 128 CNY
+  Liabilities:Card -128 CNY
+
+2026-09-13 * "生活缴费" "水电燃气"
+  Expenses:Utilities 218.8 CNY
+  Assets:Bank:Checking -218.8 CNY
+
+2026-09-16 * "周末咖啡" "咖啡和甜点"
+  Expenses:Food 58 CNY
+  Assets:Alipay -58 CNY
+
+2026-09-18 * "书店" "阅读与学习"
+  Expenses:Entertainment 129 CNY
+  Liabilities:Card -129 CNY
+
+2026-09-21 * "生鲜店" "水果和蔬菜"
+  Expenses:Groceries 176.4 CNY
+  Assets:Alipay -176.4 CNY
+
+2026-09-23 * "电影院" "周末电影"
+  Expenses:Entertainment 89 CNY
+  Assets:WeChat -89 CNY
+
+2026-09-25 * "演示公司" "月度工资到账" #salary
+  Assets:Bank:Checking 18000 CNY
+  Income:Salary -18000 CNY
+
+2026-09-27 * "家庭聚餐" "周末家庭晚餐"
+  Expenses:Food 268 CNY
+  Liabilities:Card -268 CNY
+
+2026-09-29 * "出行平台" "晚归打车"
+  Expenses:Transport 46.8 CNY
+  Assets:Alipay -46.8 CNY
+
+2026-09-30 * "支付宝" "银行卡转入支付宝"
+  Assets:Alipay 1500 CNY
+  Assets:Bank:Checking -1500 CNY
+
+2026-09-15 * "指数基金" "定期买入，增加持仓" #investing
+  Assets:Investment:Index 100 CWINDEX {10 CNY}
+  Assets:Bank:Checking -1000 CNY
+
+2026-09-30 price CWINDEX 10.65 CNY
+
+2026-10-01 * "旅行车站" "假期出行车票"
+  Expenses:Travel 680 CNY
+  Liabilities:Card -680 CNY
+
+2026-10-02 * "山间民宿" "周末短途住宿"
+  Expenses:Travel 600 CNY
+  Liabilities:Card -600 CNY
+
+2026-10-02 * "路边早餐" "旅途早餐"
+  Expenses:Food 38 CNY
+  Assets:Alipay -38 CNY
+
+2026-10-03 * "城市餐厅" "假期午餐"
+  Expenses:Food 126 CNY
+  Liabilities:Card -126 CNY
+
+2026-10-04 * "社区超市" "回家补充食材"
+  Expenses:Groceries 238.6 CNY
+  Assets:Alipay -238.6 CNY
+
+2026-10-05 * "房东" "十月房租"
+  Expenses:Housing 4200 CNY
+  Assets:Bank:Checking -4200 CNY
+
+2026-10-06 * "咖啡店" "开始上班的一杯咖啡"
+  Expenses:Food 28 CNY
+  Assets:Alipay -28 CNY
+
+2026-10-06 * "城市地铁" "通勤交通"
+  Expenses:Transport 12 CNY
+  Assets:WeChat -12 CNY
+
+2026-10-07 * "工作日午餐" "午餐"
+  Expenses:Food 35 CNY
+  Assets:Alipay -35 CNY
+
+2026-10-08 * "生活缴费" "十月电费"
+  Expenses:Utilities 189.42 CNY
+  Assets:Bank:Checking -189.42 CNY
+
+2026-10-08 * "便利店" "牛奶和面包"
+  Expenses:Groceries 42.8 CNY
+  Assets:WeChat -42.8 CNY
+
+2026-10-09 * "面馆" "晚餐"
+  Expenses:Food 32 CNY
+  Assets:Alipay -32 CNY
+
+2026-10-10 * "城市地铁" "交通卡充值"
+  Expenses:Transport 100 CNY
+  Assets:WeChat -100 CNY
+
+2026-10-10 * "周末小馆" "周末聚餐"
+  Expenses:Food 168 CNY
+  Liabilities:Card -168 CNY
+
+2026-10-11 * "超市" "周末采购"
+  Expenses:Groceries 326.75 CNY
+  Assets:Alipay -326.75 CNY
+
+2026-10-12 * "书店" "买一本新书"
+  Expenses:Entertainment 89 CNY
+  Liabilities:Card -89 CNY
+
+2026-10-12 * "咖啡店" "下午咖啡"
+  Expenses:Food 26 CNY
+  Assets:Alipay -26 CNY
+
+2026-10-13 * "出行平台" "加班后打车"
+  Expenses:Transport 46.5 CNY
+  Assets:Alipay -46.5 CNY
+
+2026-10-14 * "社区诊所" "常规检查"
+  Expenses:Health 286 CNY
+  Liabilities:Card -286 CNY
+
+2026-10-14 * "微信" "银行卡转入微信零钱"
+  Assets:WeChat 800 CNY
+  Assets:Bank:Checking -800 CNY
+
+2026-10-15 * "指数基金" "本月定期买入" #investing
+  Assets:Investment:Index 100 CWINDEX {10 CNY}
+  Assets:Bank:Checking -1000 CNY
+
+2026-10-15 * "工作日午餐" "午餐"
+  Expenses:Food 42 CNY
+  Assets:Alipay -42 CNY
+
+2026-10-16 * "自由项目" "设计项目结款" #side-income
+  Assets:Bank:Checking 2432.42 CNY
+  Income:Freelance -2432.42 CNY
+
+2026-10-16 * "服装店" "换季衣物"
+  Expenses:Shopping 380 CNY
+  Liabilities:Card -380 CNY
+
+2026-10-17 * "生鲜店" "一周蔬菜水果"
+  Expenses:Groceries 156.8 CNY
+  Assets:Alipay -156.8 CNY
+
+2026-10-17 * "电影院" "和朋友看电影"
+  Expenses:Entertainment 98 CNY
+  Assets:WeChat -98 CNY
+
+2026-10-18 * "家庭餐馆" "家庭聚餐"
+  Expenses:Food 268 CNY
+  Liabilities:Card -268 CNY
+
+2026-10-19 * "生活缴费" "手机与宽带"
+  Expenses:Utilities 129 CNY
+  Assets:Bank:Checking -129 CNY
+
+2026-10-19 * "工作日午餐" "午餐"
+  Expenses:Food 38 CNY
+  Assets:Alipay -38 CNY
+
+2026-10-20 * "支付宝" "银行卡转入支付宝"
+  Assets:Alipay 1500 CNY
+  Assets:Bank:Checking -1500 CNY
+
+2026-10-20 * "咖啡店" "咖啡和可颂"
+  Expenses:Food 49 CNY
+  Assets:Alipay -49 CNY
+
+2026-10-21 ! "数码商店" "桌面配件"
+  Expenses:Shopping 289 CNY
+  Liabilities:Card -289 CNY
+
+2026-10-22 * "工作日午餐" "午餐"
+  Expenses:Food 36 CNY
+  Assets:Alipay -36 CNY
+
+2026-10-22 * "出行平台" "打车回家"
+  Expenses:Transport 38.6 CNY
+  Assets:WeChat -38.6 CNY
+
+2026-10-23 * "社区超市" "生活用品"
+  Expenses:Groceries 187.3 CNY
+  Liabilities:Card -187.3 CNY
+
+2026-10-24 * "公园咖啡" "周末咖啡"
+  Expenses:Food 55 CNY
+  Assets:Alipay -55 CNY
+
+2026-10-25 * "演示公司" "月度工资到账" #salary
+  Assets:Bank:Checking 18000 CNY
+  Income:Salary -18000 CNY
+
+2026-10-25 * "晚餐小馆" "发薪日聚餐"
+  Expenses:Food 196 CNY
+  Liabilities:Card -196 CNY
+
+2026-10-26 * "城市地铁" "交通卡充值"
+  Expenses:Transport 100 CNY
+  Assets:WeChat -100 CNY
+
+2026-10-26 * "网上订阅" "音乐订阅"
+  Expenses:Entertainment 18 CNY
+  Liabilities:Card -18 CNY
+
+2026-10-27 * "便利店" "早餐和日用品"
+  Expenses:Groceries 62.9 CNY
+  Assets:Alipay -62.9 CNY
+
+2026-10-27 * "工作日午餐" "午餐"
+  Expenses:Food 39 CNY
+  Assets:Alipay -39 CNY
+
+2026-10-28 * "信用卡" "偿还上期信用卡账单"
+  Liabilities:Card 2800 CNY
+  Assets:Bank:Checking -2800 CNY
+
+2026-10-28 * "咖啡店" "下午咖啡"
+  Expenses:Food 28 CNY
+  Assets:Alipay -28 CNY
+
+2026-10-29 * "小巷面馆" "晚餐"
+  Expenses:Food 48 CNY
+  Assets:Alipay -48 CNY
+
+2026-10-30 * "生活缴费" "燃气账单"
+  Expenses:Utilities 68.5 CNY
+  Assets:Bank:Checking -68.5 CNY
+
+2026-10-30 * "网购商店" "退回一件桌面配件" #refund
+  Expenses:Shopping -79 CNY
+  Liabilities:Card 79 CNY
+
+2026-10-31 * "晚餐小馆" "和朋友的晚餐"
+  Expenses:Food 104 CNY
+  Liabilities:Card -104 CNY
+
+2026-10-31 * "晚餐小馆" "餐饮退款" #refund
+  Expenses:Food -20 CNY
+  Liabilities:Card 20 CNY
+
+2026-10-31 ! "生鲜店" "周末水果"
+  Expenses:Groceries 86.4 CNY
+  Assets:Alipay -86.4 CNY
+
+2026-10-12 * "美元订阅" "英文课程订阅"
+  Expenses:Shopping 42.5 USD
+  Assets:Bank:USD -42.5 USD
+
+2026-10-31 * "美元账户" "美元存款利息"
+  Assets:Bank:USD 2.4 USD
+  Income:Interest -2.4 USD
+
+2026-10-31 price CWINDEX 11.2 CNY
+
+2026-11-01 * "周日咖啡" "十一月的第一杯咖啡"
+  Expenses:Food 25 CNY
+  Assets:Alipay -25 CNY
+
+2026-11-01 * "社区超市" "本周食材"
+  Expenses:Groceries 168.8 CNY
+  Assets:Alipay -168.8 CNY
+
+2026-11-01 price CWINDEX 11.35 CNY
