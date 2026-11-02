@@ -34,6 +34,6 @@ export function SectionTitle({ title, subtitle, action, onAction }: { title: str
   return <div className="section-heading"><div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div>{action && <button className="text-action" onClick={onAction}>{action}<ChevronRight size={15} /></button>}</div>
 }
 
-export function EmptyState({ title = '这个月，还没有记录', description = '试试切换月份，看看其他时候的生活。', action }: { title?: string; description?: string; action?: ReactNode }) {
-  return <div className="empty-state"><span className="empty-icon"><SearchX size={25} strokeWidth={1.5} /></span><h3>{title}</h3><p>{description}</p>{action}</div>
+export function EmptyState({ title = '暂无记录', description, action }: { title?: string; description?: string; action?: ReactNode }) {
+  return <div className="empty-state"><span className="empty-icon"><SearchX size={25} strokeWidth={1.5} /></span><h3>{title}</h3>{description && <p>{description}</p>}{action}</div>
 }
