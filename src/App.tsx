@@ -11,6 +11,7 @@ import { routeHref, useRoute } from './lib/route'
 import type { Page } from './lib/route'
 import { usePwa } from './hooks/usePwa'
 import { useLedgerSource } from './hooks/useLedgerSource'
+import { cloudMode } from './lib/runtime'
 
 const navigation = [
   { page: 'overview', title: '收支总览', short: '总览', icon: LayoutDashboard },
@@ -86,7 +87,9 @@ export default function App() {
 
   const go = (page: Page, filters = {}) => navigate({ page, kind: 'all', search: '', account: '', ...filters })
   const pageContent = sourceController.needsConnection && route.page !== 'settings'
-    ? <EmptyState title="尚未连接账本" action={<button className="button" onClick={() => go('settings')}>连接账本</button>} />
+    ? cloudMode
+      ? <EmptyState title={sourceController.backendAvailable === null ? '正在读取账本' : '账本暂不可用'} action={sourceController.backendAvailable !== null && <button className="button" onClick={() => void sourceController.refreshStatus()}>重试</button>} />
+      : <EmptyState title="尚未连接账本" action={<button className="button" onClick={() => go('settings')}>连接账本</button>} />
     : route.page === 'overview'
     ? <OverviewPage ledger={ledger} month={route.month} currency={currency} onNavigate={go} />
     : route.page === 'transactions'
@@ -101,7 +104,7 @@ export default function App() {
       <aside className="sidebar">
         <a className="brand" href={routeHref('overview', route.month)} aria-label="Countwell 首页"><span className="brand-mark">c<span>.</span></span><span>countwell<span className="brand-dot">.</span></span></a>
         <nav className="nav-list" aria-label="主要导航">{navigation.map(item => <a key={item.page} href={routeHref(item.page, route.month)} className={`nav-link ${route.page === item.page ? 'active' : ''}`} aria-current={route.page === item.page ? 'page' : undefined}><item.icon className="nav-icon" size={19} strokeWidth={1.7} /><span>{item.title}</span>{route.page === item.page && <span className="nav-active-dot" />}</a>)}</nav>
-        <div className="sidebar-footer"><button className="source-card" onClick={openSource}><div className="source-card-top"><BookOpen size={17} /><ArrowUpRight size={15} /></div><strong>{ledger.title}</strong><span className="source-status"><span />{sourceController.real ? '真实账本 · 只读' : '演示账本'}</span></button></div>
+        <div className="sidebar-footer"><button className="source-card" onClick={openSource}><div className="source-card-top"><BookOpen size={17} /><ArrowUpRight size={15} /></div><strong>{ledger.title}</strong><span className="source-status"><span />{sourceController.real ? '真实账本 · 只读' : cloudMode ? '正在读取' : '演示账本'}</span></button></div>
       </aside>
       <main className="main-content" id="page-main" tabIndex={-1}>
         <div className="topbar"><a className="mobile-brand" href={routeHref('overview', route.month)}><span className="brand-mark">c<span>.</span></span><span>countwell.</span></a><div className="topbar-meta">{ledger.title} <ChevronRight size={13} /> <span>{active.title}</span></div><div className="topbar-actions"><span className="demo-badge"><span />{sourceController.real ? '真实账本' : sourceController.needsConnection ? '尚未加载' : '演示数据'}</span><select className="currency-picker" aria-label="展示币种" value={currency} onChange={e => setCurrency(e.target.value)}>{Array.from(new Set([...overview.currencies, currency])).map(c => <option key={c} value={c}>{c}</option>)}</select><button className="icon-button" onClick={() => setHidden(v => !v)} aria-label={hidden ? '显示金额' : '隐藏金额'} aria-pressed={hidden}>{hidden ? <EyeOff size={19} /> : <Eye size={19} />}</button></div></div>

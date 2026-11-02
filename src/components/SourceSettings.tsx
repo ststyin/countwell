@@ -1,10 +1,46 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { Check, Cloud, FolderOpen, Github, LoaderCircle, RefreshCw, Unplug } from 'lucide-react'
+import { Check, Cloud, FolderOpen, Github, LoaderCircle, LogOut, RefreshCw, Unplug } from 'lucide-react'
 import type { ConnectRequest, SourceConfig } from '../domain/source-types'
 import type { LedgerSourceController } from '../hooks/useLedgerSource'
+import { cloudMode } from '../lib/runtime'
+import { SourceClientError, sourceRequest } from '../lib/source-client'
 
 export default function SourceSettings({ controller }: { controller: LedgerSourceController }) {
+  return cloudMode ? <CloudSourceSettings controller={controller} /> : <LocalSourceSettings controller={controller} />
+}
+
+function CloudSourceSettings({ controller }: { controller: LedgerSourceController }) {
+  const { status, busy, error, reload } = controller
+  const [loggingOut, setLoggingOut] = useState(false)
+  const [logoutError, setLogoutError] = useState('')
+  const logout = async () => {
+    setLoggingOut(true); setLogoutError('')
+    try {
+      await sourceRequest('/api/auth/logout', 'POST')
+      window.dispatchEvent(new Event('countwell:session-expired'))
+      window.location.replace('/')
+    } catch (error) {
+      if (error instanceof SourceClientError && error.failure.code === 'UNAUTHENTICATED') window.dispatchEvent(new Event('countwell:session-expired'))
+      else setLogoutError('退出未完成，请重试。')
+    } finally { setLoggingOut(false) }
+  }
+
+  return <section className="panel settings-section source-settings" id="data-source">
+    <div className="section-heading"><h2>账本数据源</h2><Github size={21} className="settings-heading-icon" /></div>
+    {status?.connected ? <dl className="cloud-source-details">
+      <div><dt>GitHub</dt><dd>{status.source?.repository ? <a href={`https://github.com/${status.source.repository}`} target="_blank" rel="noreferrer">{status.source.repository}</a> : '已连接'}</dd></div>
+      <div><dt>入口</dt><dd>{status.source?.entryPath}</dd></div>
+      <div><dt>账本</dt><dd>{status.fileCount} 个文件 · {status.transactionCount} 笔交易</dd></div>
+      {status.loadedAt && <div><dt>读取于</dt><dd><time dateTime={status.loadedAt}>{new Date(status.loadedAt).toLocaleString('zh-CN')}</time></dd></div>}
+      {status.revision && <div><dt>版本</dt><dd>同步于 {status.revision.slice(0, 12)}</dd></div>}
+    </dl> : <p className="cloud-source-pending" role="status">{controller.backendAvailable === null ? '正在读取账本…' : '账本暂不可用'}</p>}
+    <div className="setting-actions"><button className="button" disabled={busy || loggingOut} onClick={() => void reload()}>{busy ? <LoaderCircle size={16} className="spin" /> : <RefreshCw size={16} />}刷新账本</button><button className="button" disabled={loggingOut} onClick={() => void logout()}><LogOut size={16} />{loggingOut ? '正在退出…' : '退出登录'}</button></div>
+    {(error || logoutError) && <div className="source-error" role="alert">{logoutError || error?.message}</div>}
+  </section>
+}
+
+function LocalSourceSettings({ controller }: { controller: LedgerSourceController }) {
   const { status, backendAvailable, busy, error, connect, reload, useDemo } = controller
   const [type, setType] = useState<SourceConfig['type']>('local')
   const [entryPath, setEntryPath] = useState('')
