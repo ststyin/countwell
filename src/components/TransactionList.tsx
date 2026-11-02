@@ -8,10 +8,36 @@ export const kindLabels = { income: '收入', expense: '支出', refund: '退款
 
 export default function TransactionList({ transactions }: { transactions: Activity[] }) {
   const { hidden } = useContext(DisplayContext)
+  const rawAmount = (amount: string) => <span className="money">{hidden ? '••••' : amount}</span>
   if (!transactions.length) return <EmptyState title="没有找到这类记录" description="试试切换月份，或者调整筛选条件。" />
   return <div className="transaction-list">{transactions.map(tx => {
     const sign = tx.direction === 'out' ? '−' : tx.direction === 'in' ? '+' : ''
     const label = tx.kind === 'refund' ? '冲减支出' : tx.kind === 'transfer' ? '账户间转账，不计入收支' : tx.kind === 'investment' ? '投资变动，不计入消费' : tx.category
-    return <details className={`transaction-row transaction-${tx.kind} direction-${tx.direction}`} key={tx.id}><summary><span className={`transaction-icon ${tx.kind}-icon`}><CategoryIcon name={tx.category} kind={tx.kind} size={19} /></span><span className="transaction-info"><span className="transaction-title">{tx.payee || tx.narration}<span className="transaction-kind">{kindLabels[tx.kind]}</span>{tx.flag === '!' && <CircleAlert size={13} className="pending-indicator" aria-label="待核对" />}</span><span className="transaction-subtitle">{shortDate(tx.date)}<span className="mini-dot" />{label}</span></span><span className={`transaction-amount ${tx.kind === 'income' || tx.kind === 'refund' ? 'income-tone' : tx.kind === 'expense' ? 'expense-tone' : ''}`}>{!hidden && sign}<Money amount={tx.amount} currency={tx.currency} /><small>{tx.currency}</small></span><ChevronDown size={15} className="transaction-chevron" /></summary><div className="transaction-details"><div className="transaction-detail-header"><span>{tx.narration}</span><span>{tx.flag === '!' ? '待核对' : '已确认'}</span></div>{tx.kind === 'transfer' && <p className="transfer-description">{tx.fromAccount && <>{tx.fromAccount}<ArrowRight size={13} />{tx.toAccount}</>}<span>账户之间的钱发生了转移，总收入与总支出保持不变。</span></p>}<div className="posting-header"><span>复式分录</span><span>原始记账符号</span></div><div className="posting-list">{tx.postings.map((p, index) => <div className="posting-row" key={index}><span className="posting-account"><code>{p.account}</code>{p.cost && <small className="posting-cost">每份成本 <Money amount={p.cost.amount} currency={p.cost.currency} /> {p.cost.currency}</small>}</span><span><Money amount={p.amount} currency={p.currency} /> <small>{p.currency}</small></span></div>)}</div>{tx.tags.length > 0 && <div className="transaction-tags">{tx.tags.map(tag => <span key={tag}>#{tag}</span>)}</div>}<p className="detail-note">日常金额按交易含义显示，原始分录保留借贷方向。</p></div></details>
+    const primaryIndex = tx.amounts?.findIndex(amount => amount.amount === tx.amount && amount.currency === tx.currency && amount.direction === tx.direction && amount.kind === tx.kind && amount.basis === tx.amountBasis) ?? -1
+    const otherAmounts = tx.amounts?.filter((_, index) => index !== primaryIndex) ?? []
+    return <details className={`transaction-row transaction-${tx.kind} direction-${tx.direction}`} key={tx.id}>
+      <summary>
+        <span className={`transaction-icon ${tx.kind}-icon`}><CategoryIcon name={tx.category} kind={tx.kind} size={19} /></span>
+        <span className="transaction-info"><span className="transaction-title">{tx.payee || tx.narration || '无描述交易'}<span className="transaction-kind">{kindLabels[tx.kind]}</span>{tx.flag === '!' && <CircleAlert size={13} className="pending-indicator" aria-label="待核对" />}</span><span className="transaction-subtitle">{shortDate(tx.date)}<span className="mini-dot" />{label}{tx.amountBasis === 'weight' ? ' · 记账权重' : ''}</span></span>
+        <span className={`transaction-amount ${tx.direction === 'in' ? 'income-tone' : tx.direction === 'out' ? 'expense-tone' : ''}`}>{!hidden && sign}<Money amount={tx.amount} currency={tx.currency} /><small>{tx.currency}</small>{otherAmounts.map((amount, index) => <small key={index}>{kindLabels[amount.kind]} {hidden ? '••••' : `${amount.direction === 'in' ? '+' : amount.direction === 'out' ? '−' : ''}${amount.amount}`} {amount.currency}{amount.basis === 'weight' ? ' · 权重' : ''}</small>)}</span>
+        <ChevronDown size={15} className="transaction-chevron" />
+      </summary>
+      <div className="transaction-details">
+        <div className="transaction-detail-header"><span>{tx.narration}</span><span>{tx.flag === '!' ? '待核对' : tx.flag === '*' ? '已确认' : `交易标记：${tx.flag}`}</span></div>
+        {tx.kind === 'transfer' && <p className="transfer-description">{tx.fromAccount && <>{tx.fromAccount}<ArrowRight size={13} />{tx.toAccount}</>}<span>账户之间的钱发生了转移，总收入与总支出保持不变。</span></p>}
+        <div className="posting-header"><span>复式分录</span><span>原始记账符号与完整精度</span></div>
+        <div className="posting-list">{tx.postings.map((posting, index) => <div className="posting-row" key={index}>
+          <span className="posting-account"><code>{posting.account}</code>
+            {posting.flag && <small className="posting-cost">分录标记：{posting.flag}</small>}
+            {posting.cost && <small className="posting-cost">每份成本 {rawAmount(posting.cost.amount)} {posting.cost.currency}{posting.cost.date ? ` · ${posting.cost.date}` : ''}{posting.cost.label ? ` · ${posting.cost.label}` : ''}</small>}
+            {posting.price && <small className="posting-cost">每份交易价格 {rawAmount(posting.price.amount)} {posting.price.currency}</small>}
+            {posting.weight && <small className="posting-cost">Beancount 记账权重 {rawAmount(posting.weight.amount)} {posting.weight.currency}</small>}
+          </span><span>{rawAmount(posting.amount)} <small>{posting.currency}</small></span>
+        </div>)}</div>
+        {tx.tags.length > 0 && <div className="transaction-tags">{tx.tags.map(tag => <span key={tag}>#{tag}</span>)}</div>}
+        {tx.links && tx.links.length > 0 && <div className="transaction-tags">{tx.links.map(link => <span key={link}>^{link}</span>)}</div>}
+        <p className="detail-note">日常金额按交易含义显示，原始分录保留借贷方向。多个单位分别展示；成本和价格交易的记账权重不代表现金实收实付。</p>
+      </div>
+    </details>
   })}</div>
 }

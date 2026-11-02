@@ -1,168 +1,237 @@
 import Decimal from 'decimal.js';
-import type { AccountBalance, AccountReport, Activity, InvestmentPosition, Ledger, LedgerTransaction, Overview, Posting, TransactionQuery } from './types';
+import type { AccountBalance, AccountKind, AccountReport, Activity, ActivityAmount, InvestmentPosition, Ledger, LedgerTransaction, Overview, TransactionQuery, TransactionKind } from './types';
 
-const D = Decimal.clone({ precision:80 });
-const sum = (values: string[]) => values.reduce((total,value) => total.plus(value),new D(0));
+const defaultRoots = { assets: 'Assets', liabilities: 'Liabilities', income: 'Income', expenses: 'Expenses', equity: 'Equity' };
 const text = (value: Decimal) => value.isZero() ? '0' : value.toFixed();
-const root = (posting: Posting) => posting.account.split(':')[0];
 const label = (ledger: Ledger, name: string) => ledger.accounts.find(account => account.name === name)?.label ?? name.split(':').at(-1)!;
 
-export function monthBounds(month: string): {start:string;end:string;days:number;previous:string} {
+function accountKind(ledger: Ledger, name: string): AccountKind | undefined {
+  const explicit = ledger.accounts.find(account => account.name === name)?.kind;
+  if (explicit) return explicit;
+  const roots = ledger.roots ?? defaultRoots;
+  const root = name.split(':')[0];
+  return root === roots.assets ? 'asset' : root === roots.liabilities ? 'liability' : root === roots.income ? 'income' : root === roots.expenses ? 'expense' : root === roots.equity ? 'equity' : undefined;
+}
+
+function arithmetic(ledger: Ledger) {
+  const numbers = ledger.transactions.flatMap(transaction => transaction.postings.flatMap(posting => [posting.amount, posting.cost?.amount, posting.price?.amount].filter((value): value is string => value !== undefined))).concat(ledger.prices.map(price => price.amount));
+  let integerDigits = 1, scale = 0;
+  for (const value of numbers) {
+    const number = new Decimal(value);
+    if (!number.isFinite()) throw new Error('账本包含非有限金额，不能生成报表');
+    integerDigits = Math.max(integerDigits, number.e + 1);
+    scale = Math.max(scale, number.decimalPlaces());
+  }
+  const D = Decimal.clone({ precision: Math.max(80, 2 * (integerDigits + scale) + String(numbers.length + 1).length + 8) });
+  return { D, sum: (values: string[]) => values.reduce((total, value) => total.plus(value), new D(0)) };
+}
+
+export function monthBounds(month: string): { start: string; end: string; days: number; previous: string } {
   if (typeof month !== 'string' || !/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('月份必须为 YYYY-MM');
-  const [year,number] = month.split('-').map(Number);
+  const [year, number] = month.split('-').map(Number);
   if (year === 0) throw new Error('年份必须大于零');
-  const days = number === 2 ? (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28) : [4,6,9,11].includes(number) ? 30 : 31;
-  const previous = number === 1 ? `${String(year-1).padStart(4,'0')}-12` : `${String(year).padStart(4,'0')}-${String(number-1).padStart(2,'0')}`;
-  return {start:`${month}-01`,end:`${month}-${days}`,days,previous};
+  const days = number === 2 ? (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28) : [4, 6, 9, 11].includes(number) ? 30 : 31;
+  const previous = number === 1 ? `${String(year - 1).padStart(4, '0')}-12` : `${String(year).padStart(4, '0')}-${String(number - 1).padStart(2, '0')}`;
+  return { start: `${month}-01`, end: `${month}-${days}`, days, previous };
+}
+
+function costUnits(ledger: Ledger, end = '9999-12-31'): Set<string> {
+  return new Set(ledger.transactions.filter(transaction => transaction.date <= end).flatMap(transaction => transaction.postings.filter(posting => posting.cost).map(posting => posting.currency)));
 }
 
 function moneyCurrencies(ledger: Ledger): string[] {
-  return [...new Set(ledger.transactions.flatMap(transaction => transaction.postings.filter(posting => !posting.cost && !ledger.commodities.includes(posting.currency)).map(posting => posting.currency)))].sort((a,b) => a === 'CNY' ? -1 : b === 'CNY' ? 1 : a.localeCompare(b));
+  const goods = costUnits(ledger);
+  const currencies = new Set(ledger.operatingCurrencies ?? []);
+  for (const transaction of ledger.transactions) for (const posting of transaction.postings) {
+    if (!goods.has(posting.currency) || currencies.has(posting.currency)) currencies.add(posting.currency);
+    if (posting.cost) currencies.add(posting.cost.currency);
+    if (posting.price) currencies.add(posting.price.currency);
+  }
+  for (const quote of ledger.prices) currencies.add(quote.currency);
+  // Commodity declarations are not a currency classifier: CNY/USD declarations
+  // are common and must not erase ordinary cash balances.
+  return [...currencies].sort((a, b) => a === 'CNY' ? -1 : b === 'CNY' ? 1 : a.localeCompare(b));
 }
 
-function totalForMonth(ledger: Ledger, month: string, currency: string) {
-  const {start,end} = monthBounds(month);
+function flowForMonth(ledger: Ledger, month: string, currency: string, D: typeof Decimal) {
+  const { start, end } = monthBounds(month);
   const transactions = ledger.transactions.filter(transaction => transaction.date >= start && transaction.date <= end);
-  let income = new D(0);
-  let expense = new D(0);
-  for (const transaction of transactions) {
-    for (const posting of transaction.postings) {
-      if (posting.currency !== currency) continue;
-      if (root(posting) === 'Income') income = income.minus(posting.amount);
-      if (root(posting) === 'Expenses') expense = expense.plus(posting.amount);
-    }
+  const goods = costUnits(ledger, end);
+  let income = new D(0), expense = new D(0), supported = true;
+  for (const transaction of transactions) for (const posting of transaction.postings) {
+    const kind = accountKind(ledger, posting.account);
+    if (kind !== 'income' && kind !== 'expense') continue;
+    const relevant = posting.currency === currency || posting.cost?.currency === currency || posting.price?.currency === currency;
+    if (relevant && (posting.cost || posting.price || goods.has(posting.currency))) supported = false;
+    if (posting.currency !== currency) continue;
+    if (kind === 'income') income = income.minus(posting.amount);
+    else expense = expense.plus(posting.amount);
   }
-  return {income,expense,transactions};
+  return { income, expense, transactions, supported };
 }
 
-/** Filtering affects transaction rows; full-month summary values stay unchanged. */
+/** Only a single currency is aggregated, and unsupported flows fail closed. */
 export function getOverview(ledger: Ledger, month: string, currency = 'CNY'): Overview {
-  const {days,previous} = monthBounds(month);
-  const current = totalForMonth(ledger,month,currency);
-  const visibleTransactions = current.transactions
-    .map(transaction => activity(ledger,transaction))
-    .filter(transaction => transaction.currency === currency);
-  const before = previous.startsWith('0000') ? {income:new D(0),expense:new D(0)} : totalForMonth(ledger,previous,currency);
-  const daily = new Map(Array.from({length:days},(_,index) => [`${month}-${String(index+1).padStart(2,'0')}`,new D(0)]));
-  const expenses = new Map<string,Decimal>();
-  const incomes = new Map<string,Decimal>();
-  for (const transaction of current.transactions) {
-    for (const posting of transaction.postings) {
-      if (posting.currency !== currency) continue;
-      if (root(posting) === 'Expenses') {
-        expenses.set(posting.account,(expenses.get(posting.account) ?? new D(0)).plus(posting.amount));
-        daily.set(transaction.date,daily.get(transaction.date)!.plus(posting.amount));
-      } else if (root(posting) === 'Income') {
-        incomes.set(posting.account,(incomes.get(posting.account) ?? new D(0)).minus(posting.amount));
-      }
-    }
+  const { D } = arithmetic(ledger);
+  const { days, previous } = monthBounds(month);
+  const current = flowForMonth(ledger, month, currency, D);
+  const before = previous.startsWith('0000') ? { income: new D(0), expense: new D(0), supported: true } : flowForMonth(ledger, previous, currency, D);
+  const visibleTransactions = getTransactions(ledger, { month, currency });
+  const daily = new Map(Array.from({ length: days }, (_, index) => [`${month}-${String(index + 1).padStart(2, '0')}`, new D(0)]));
+  const expenses = new Map<string, Decimal>(), incomes = new Map<string, Decimal>();
+  if (current.supported) for (const transaction of current.transactions) for (const posting of transaction.postings) {
+    if (posting.currency !== currency) continue;
+    const kind = accountKind(ledger, posting.account);
+    if (kind === 'expense') {
+      expenses.set(posting.account, (expenses.get(posting.account) ?? new D(0)).plus(posting.amount));
+      daily.set(transaction.date, daily.get(transaction.date)!.plus(posting.amount));
+    } else if (kind === 'income') incomes.set(posting.account, (incomes.get(posting.account) ?? new D(0)).minus(posting.amount));
   }
-  const categoryRows = (values:Map<string,Decimal>,total:Decimal) => [...values].map(([account,amount]) => ({account,name:label(ledger,account),amount:text(amount),share:total.isZero() ? 0 : amount.div(total).times(100).toNumber()})).sort((a,b) => new D(b.amount).cmp(a.amount));
-  const change = (now:Decimal,prior:Decimal) => prior.isZero() ? null : now.minus(prior).div(prior.abs()).times(100).toNumber();
+  const categoryRows = (values: Map<string, Decimal>, total: Decimal) => [...values].map(([account, amount]) => ({ account, name: label(ledger, account), amount: text(amount), share: total.isZero() ? 0 : amount.div(total).times(100).toNumber() })).sort((a, b) => new D(b.amount).cmp(a.amount));
+  const change = (now: Decimal, prior: Decimal) => !current.supported || !before.supported || prior.isZero() ? null : now.minus(prior).div(prior.abs()).times(100).toNumber();
   return {
-    month,currency,currencies:moneyCurrencies(ledger),income:text(current.income),expense:text(current.expense),surplus:text(current.income.minus(current.expense)),
-    previousIncome:text(before.income),previousExpense:text(before.expense),previousSurplus:text(before.income.minus(before.expense)),
-    incomeChange:change(current.income,before.income),expenseChange:change(current.expense,before.expense),
-    transactionCount:visibleTransactions.length,pendingCount:visibleTransactions.filter(transaction => transaction.flag === '!').length,
-    dailyExpenses:[...daily].map(([date,amount]) => ({date,amount:text(amount)})),categories:categoryRows(expenses,current.expense),incomeCategories:categoryRows(incomes,current.income),
+    month, currency, currencies: moneyCurrencies(ledger), flowSupported: current.supported, previousFlowSupported: before.supported,
+    warnings: current.supported ? [] : ['本月收支包含成本、价格或商品数量，暂不生成收支和分类合计；完整交易与账户余额仍可查看。'],
+    income: current.supported ? text(current.income) : '0', expense: current.supported ? text(current.expense) : '0', surplus: current.supported ? text(current.income.minus(current.expense)) : '0',
+    previousIncome: before.supported ? text(before.income) : '0', previousExpense: before.supported ? text(before.expense) : '0', previousSurplus: before.supported ? text(before.income.minus(before.expense)) : '0',
+    incomeChange: change(current.income, before.income), expenseChange: change(current.expense, before.expense),
+    transactionCount: visibleTransactions.length, pendingCount: visibleTransactions.filter(transaction => transaction.flag === '!').length,
+    dailyExpenses: [...daily].map(([date, amount]) => ({ date, amount: text(amount) })), categories: categoryRows(expenses, current.expense), incomeCategories: categoryRows(incomes, current.income),
   };
 }
 
-function activity(ledger: Ledger, transaction: LedgerTransaction): Activity {
-  const income = transaction.postings.filter(posting => root(posting) === 'Income');
-  const expense = transaction.postings.filter(posting => root(posting) === 'Expenses');
-  const investments = transaction.postings.filter(posting => posting.cost);
-  const assets = transaction.postings.filter(posting => root(posting) === 'Assets');
-  const outgoing = assets.find(posting => new D(posting.amount).isNegative());
-  const incoming = assets.find(posting => new D(posting.amount).isPositive());
-  const repaymentTarget = transaction.postings.find(posting => root(posting) === 'Liabilities' && new D(posting.amount).isPositive());
-  let kind:Activity['kind'];
-  let direction:Activity['direction'];
-  let category:string;
-  let amount:Decimal;
-  let currency:string;
-  if (income.length) {
-    kind = 'income';
-    const signed = sum(income.map(posting => posting.amount)).negated();
-    direction = signed.isNegative() ? 'out' : 'in';
-    category = signed.isNegative() ? '收入冲回' : income.length === 1 ? label(ledger,income[0].account) : '多项收入';
-    amount = signed.abs();
-    currency = income[0].currency;
-  } else if (expense.length) {
-    const signed = sum(expense.map(posting => posting.amount));
-    kind = signed.isNegative() ? 'refund' : 'expense';
-    direction = signed.isNegative() ? 'in' : 'out';
-    category = expense.length === 1 ? label(ledger,expense[0].account) : '多项支出';
-    amount = signed.abs();
-    currency = expense[0].currency;
-  } else if (investments.length) {
-    kind = 'investment';direction = 'internal';category = '投资买入';
-    amount = sum(investments.map(posting => new D(posting.amount).times(posting.cost!.amount).toFixed())).abs();
-    currency = investments[0].cost!.currency;
-    if (investments.every(posting => new D(posting.amount).isNegative())) category = '投资卖出';
-  } else {
-    kind = 'transfer';direction = 'internal';category = '账户转账';
-    const representative = incoming ?? outgoing ?? transaction.postings[0];
-    amount = new D(representative.amount).abs();currency = representative.currency;
-    if (transaction.postings.some(posting => root(posting) === 'Liabilities')) category = '信用卡还款';
-    if (transaction.postings.some(posting => root(posting) === 'Equity')) category = '期初余额';
+function activityAmounts(ledger: Ledger, transaction: LedgerTransaction, D: typeof Decimal): ActivityAmount[] {
+  const groups = new Map<string, { amount: Decimal; currency: string; type: 'income' | 'expense'; basis: 'units' | 'weight' }>();
+  const add = (type: 'income' | 'expense', amount: string, currency: string, basis: 'units' | 'weight') => {
+    const key = `${type}\0${currency}\0${basis}`;
+    const previous = groups.get(key);
+    groups.set(key, { type, currency, basis, amount: (previous?.amount ?? new D(0)).plus(amount) });
+  };
+  for (const posting of transaction.postings) {
+    const kind = accountKind(ledger, posting.account);
+    if (kind !== 'income' && kind !== 'expense') continue;
+    add(kind, posting.amount, posting.currency, 'units');
+    if (posting.cost || posting.price) {
+      const annotation = posting.cost ?? posting.price!;
+      const weight = posting.weight ?? { amount: new D(posting.amount).times(annotation.amount).toFixed(), currency: annotation.currency };
+      if (weight.currency !== posting.currency || !new D(weight.amount).equals(posting.amount)) add(kind, weight.amount, weight.currency, 'weight');
+    }
   }
-  const representative = outgoing ?? incoming ?? transaction.postings[0];
-  return {...transaction,kind,direction,category,amount:text(amount),currency,account:representative.account,accountLabel:label(ledger,representative.account),fromAccount:outgoing?.account,toAccount:incoming?.account ?? repaymentTarget?.account};
+  const amounts: ActivityAmount[] = [...groups.values()].map(group => {
+    const signed = group.type === 'income' ? group.amount.negated() : group.amount;
+    const kind = group.type === 'income' ? 'income' : signed.isNegative() ? 'refund' : 'expense';
+    return { amount: text(signed.abs()), currency: group.currency, direction: group.type === 'income' ? signed.isNegative() ? 'out' : 'in' : signed.isNegative() ? 'in' : 'out', kind, basis: group.basis };
+  });
+  const booked = transaction.postings.filter(posting => posting.cost && ['asset', 'liability'].includes(accountKind(ledger, posting.account) ?? ''));
+  for (const currency of new Set(booked.map(posting => posting.cost!.currency))) {
+    const weights = booked.filter(posting => posting.cost!.currency === currency).map(posting => new D(posting.amount).times(posting.cost!.amount));
+    const incoming = weights.filter(value => value.isPositive()).reduce((total, value) => total.plus(value), new D(0));
+    const outgoing = weights.filter(value => value.isNegative()).reduce((total, value) => total.plus(value), new D(0));
+    amounts.push({ amount: text(incoming.isZero() ? outgoing.abs() : incoming), currency, direction: 'internal', kind: 'investment', basis: 'weight' });
+  }
+  if (amounts.length) return amounts;
+  for (const currency of new Set(transaction.postings.map(posting => posting.currency))) {
+    const financial = transaction.postings.filter(posting => posting.currency === currency && ['asset', 'liability'].includes(accountKind(ledger, posting.account) ?? ''));
+    const positive = financial.filter(posting => new D(posting.amount).isPositive()).reduce((total, posting) => total.plus(posting.amount), new D(0));
+    const negative = financial.filter(posting => new D(posting.amount).isNegative()).reduce((total, posting) => total.plus(posting.amount), new D(0));
+    const fallback = transaction.postings.find(posting => posting.currency === currency)!;
+    amounts.push({ amount: text(!positive.isZero() ? positive : !negative.isZero() ? negative.abs() : new D(fallback.amount).abs()), currency, direction: 'internal', kind: 'transfer', basis: 'units' });
+  }
+  return amounts;
 }
 
-export function getTransactions(ledger: Ledger, query:TransactionQuery): Activity[] {
-  const {start,end} = monthBounds(query.month);
+function activity(ledger: Ledger, transaction: LedgerTransaction, amounts: ActivityAmount[], selected?: string, preferred?: TransactionKind): Activity {
+  const D = Decimal;
+  const candidates = selected ? amounts.filter(amount => amount.currency === selected) : amounts;
+  const primary = candidates.find(amount => amount.kind === preferred) ?? candidates[0] ?? amounts[0];
+  const kind = primary.kind;
+  const corresponding = transaction.postings.filter(posting => posting.currency === primary.currency && accountKind(ledger, posting.account) === (kind === 'income' ? 'income' : 'expense'));
+  let category = kind === 'income' ? primary.direction === 'out' ? '收入冲回' : corresponding.length === 1 ? label(ledger, corresponding[0].account) : '多项收入' : kind === 'expense' || kind === 'refund' ? corresponding.length === 1 ? label(ledger, corresponding[0].account) : '多项支出' : kind === 'investment' ? '投资买入' : '账户转账';
+  if (kind === 'investment' && transaction.postings.filter(posting => posting.cost).every(posting => new D(posting.amount).isNegative())) category = '投资卖出';
+  if (kind === 'transfer' && transaction.postings.some(posting => accountKind(ledger, posting.account) === 'liability')) {
+    const liabilityChanges = transaction.postings.filter(posting => accountKind(ledger, posting.account) === 'liability' && posting.currency === primary.currency);
+    category = liabilityChanges.every(posting => new D(posting.amount).isPositive()) ? '负债还款' : liabilityChanges.every(posting => new D(posting.amount).isNegative()) ? '借款或负债增加' : '负债变动';
+  }
+  if (kind === 'transfer' && transaction.postings.some(posting => accountKind(ledger, posting.account) === 'equity')) category = '期初余额';
+  const assets = transaction.postings.filter(posting => accountKind(ledger, posting.account) === 'asset');
+  const outgoing = assets.find(posting => posting.currency === primary.currency && new D(posting.amount).isNegative()) ?? assets.find(posting => new D(posting.amount).isNegative());
+  const incoming = assets.find(posting => posting.currency === primary.currency && new D(posting.amount).isPositive()) ?? assets.find(posting => new D(posting.amount).isPositive());
+  const repaymentTarget = transaction.postings.find(posting => accountKind(ledger, posting.account) === 'liability' && posting.currency === primary.currency && new D(posting.amount).isPositive());
+  const borrowingSource = transaction.postings.find(posting => accountKind(ledger, posting.account) === 'liability' && posting.currency === primary.currency && new D(posting.amount).isNegative());
+  const representative = outgoing ?? incoming ?? transaction.postings[0];
+  return { ...transaction, kind, direction: primary.direction, category, amount: primary.amount, currency: primary.currency, amountBasis: primary.basis, amounts, account: representative.account, accountLabel: label(ledger, representative.account), fromAccount: outgoing?.account ?? borrowingSource?.account, toAccount: incoming?.account ?? repaymentTarget?.account };
+}
+
+export function getTransactions(ledger: Ledger, query: TransactionQuery): Activity[] {
+  const { D } = arithmetic(ledger);
+  const { start, end } = monthBounds(query.month);
   const search = query.search?.toLowerCase() ?? '';
   return ledger.transactions.filter(transaction => transaction.date >= start && transaction.date <= end)
-    .map(transaction => activity(ledger,transaction))
-    .filter(item => (!query.kind || query.kind === 'all' || query.kind === item.kind)
-      && (!query.account || query.account === 'all' || item.postings.some(posting => posting.account === query.account))
-      && (!query.currency || item.currency === query.currency)
-      && (!search || `${item.payee}\n${item.narration}\n${item.category}\n${item.accountLabel}\n${item.postings.map(posting => label(ledger,posting.account)).join('\n')}`.toLowerCase().includes(search)))
+    .map(transaction => ({ transaction, amounts: activityAmounts(ledger, transaction, D) }))
+    .filter(({ transaction, amounts }) => (!query.currency || amounts.some(amount => amount.currency === query.currency))
+      && (!query.kind || query.kind === 'all' || amounts.some(amount => amount.kind === query.kind && (!query.currency || amount.currency === query.currency)))
+      && (!query.account || query.account === 'all' || transaction.postings.some(posting => posting.account === query.account)))
+    .map(({ transaction, amounts }) => activity(ledger, transaction, amounts, query.currency, query.kind === 'all' ? undefined : query.kind))
+    .filter(item => !search || `${item.payee}\n${item.narration}\n${item.category}\n${item.accountLabel}\n${item.postings.map(posting => label(ledger, posting.account)).join('\n')}`.toLowerCase().includes(search))
     .reverse();
 }
 
 /** Values are independently reported for each currency, with no implicit FX. */
-export function getAccounts(ledger: Ledger, month:string, currency = 'CNY'): AccountReport {
-  const {start,end} = monthBounds(month);
-  const balances = new Map<string,{account:string;currency:string;opening:Decimal;closing:Decimal}>();
-  const lots = new Map<string,{account:string;commodity:string;currency:string;unitCost:string;units:Decimal}>();
-  const commodityNames = new Set([...ledger.commodities,...ledger.transactions.flatMap(transaction => transaction.postings.filter(posting => posting.cost).map(posting => posting.currency))]);
+export function getAccounts(ledger: Ledger, month: string, currency = 'CNY'): AccountReport {
+  const { D, sum } = arithmetic(ledger);
+  const { start, end } = monthBounds(month);
+  const goods = costUnits(ledger, end);
+  const operating = new Set(ledger.operatingCurrencies ?? []);
+  const investmentUnits = new Set([...goods].filter(unit => !operating.has(unit)));
+  const balances = new Map<string, { account: string; currency: string; opening: Decimal; closing: Decimal }>();
+  type Lot = { account: string; commodity: string; costCurrency: string | null; unitCost: string | null; date: string | null; label: string | null; units: Decimal };
+  const lots = new Map<string, Lot>();
   for (const transaction of ledger.transactions) {
     if (transaction.date > end) continue;
     for (const posting of transaction.postings) {
-      if (!['Assets','Liabilities'].includes(root(posting))) continue;
-      if (posting.cost) {
-        const key = `${posting.account}\0${posting.currency}\0${posting.cost.currency}\0${posting.cost.amount}`;
-        const lot = lots.get(key) ?? {account:posting.account,commodity:posting.currency,currency:posting.cost.currency,unitCost:posting.cost.amount,units:new D(0)};
-        lot.units = lot.units.plus(posting.amount);lots.set(key,lot);
-      } else if (!commodityNames.has(posting.currency)) {
-        const key = `${posting.account}\0${posting.currency}`;
-        const balance = balances.get(key) ?? {account:posting.account,currency:posting.currency,opening:new D(0),closing:new D(0)};
-        balance.closing = balance.closing.plus(posting.amount);
-        if (transaction.date < start) balance.opening = balance.opening.plus(posting.amount);
-        balances.set(key,balance);
+      const kind = accountKind(ledger, posting.account);
+      if (kind !== 'asset' && kind !== 'liability') continue;
+      const balanceKey = `${posting.account}\0${posting.currency}`;
+      const balance = balances.get(balanceKey) ?? { account: posting.account, currency: posting.currency, opening: new D(0), closing: new D(0) };
+      balance.closing = balance.closing.plus(posting.amount);
+      if (transaction.date < start) balance.opening = balance.opening.plus(posting.amount);
+      balances.set(balanceKey, balance);
+      if (posting.cost || investmentUnits.has(posting.currency)) {
+        const key = JSON.stringify([posting.account, posting.currency, posting.cost?.currency ?? null, posting.cost?.amount ?? null, posting.cost?.date ?? null, posting.cost?.label ?? null]);
+        const lot = lots.get(key) ?? { account: posting.account, commodity: posting.currency, costCurrency: posting.cost?.currency ?? null, unitCost: posting.cost?.amount ?? null, date: posting.cost?.date ?? null, label: posting.cost?.label ?? null, units: new D(0) };
+        lot.units = lot.units.plus(posting.amount);
+        lots.set(key, lot);
       }
     }
   }
-  const accounts:AccountBalance[] = [...balances.values()].map(balance => {
-    const account = ledger.accounts.find(item => item.name === balance.account)!;
-    return {name:account.name,label:account.label,kind:account.kind as 'asset'|'liability',role:account.role,balance:text(balance.closing),opening:text(balance.opening),change:text(balance.closing.minus(balance.opening)),currency:balance.currency};
-  }).sort((a,b) => a.name.localeCompare(b.name) || a.currency.localeCompare(b.currency));
-  const positions:InvestmentPosition[] = [...lots.values()].filter(lot => !lot.units.isZero()).map(lot => {
-    const quote = ledger.prices.filter(price => price.commodity === lot.commodity && price.currency === lot.currency && price.date <= end).at(-1);
-    const cost = lot.units.times(lot.unitCost);
-    const value = quote ? lot.units.times(quote.amount) : null;
-    return {account:lot.account,accountLabel:label(ledger,lot.account),commodity:lot.commodity,units:text(lot.units),currency:lot.currency,cost:text(cost),unitCost:lot.unitCost,price:quote?.amount ?? null,priceDate:quote?.date ?? null,marketValue:value === null ? null : text(value),unrealizedPnl:value === null ? null : text(value.minus(cost))};
-  });
-  const selected = accounts.filter(account => account.currency === currency);
-  const selectedPositions = positions.filter(position => position.currency === currency);
-  const cash = sum(selected.filter(account => account.kind === 'asset').map(account => account.balance));
-  const previousCash = sum(selected.filter(account => account.kind === 'asset').map(account => account.opening));
-  const liabilities = sum(selected.filter(account => account.kind === 'liability').map(account => D.max(new D(account.balance).negated(),0).toFixed()));
-  const overpayments = sum(selected.filter(account => account.kind === 'liability').map(account => D.max(account.balance,0).toFixed()));
+  const accounts: AccountBalance[] = [...balances.values()].map(balance => {
+    const account = ledger.accounts.find(item => item.name === balance.account);
+    const role: AccountBalance['role'] = investmentUnits.has(balance.currency) ? 'investment' : account?.role === 'investment' ? 'cash' : account?.role ?? 'cash';
+    return { name: balance.account, label: label(ledger, balance.account), kind: accountKind(ledger, balance.account) as 'asset' | 'liability', role, balance: text(balance.closing), opening: text(balance.opening), change: text(balance.closing.minus(balance.opening)), currency: balance.currency };
+  }).sort((a, b) => a.name.localeCompare(b.name) || a.currency.localeCompare(b.currency));
+  const positions: InvestmentPosition[] = [];
+  for (const lot of lots.values()) {
+    if (lot.units.isZero()) continue;
+    const available = ledger.prices.filter(price => price.commodity === lot.commodity && price.date <= end);
+    const targets = new Set(available.map(price => price.currency));
+    if (lot.costCurrency) targets.add(lot.costCurrency);
+    if (!targets.size) targets.add('');
+    for (const target of targets) {
+      const quote = available.filter(price => price.currency === target).reduce<typeof available[number] | undefined>((selected, price) => !selected || price.date >= selected.date ? price : selected, undefined);
+      const status = target === lot.commodity ? 'unsupported_pair' : !quote ? 'missing_price' : !new D(quote.amount).isPositive() ? 'invalid_price' : 'ok';
+      const cost = lot.unitCost === null ? null : lot.units.times(lot.unitCost);
+      const value = quote && status === 'ok' ? lot.units.times(quote.amount) : null;
+      positions.push({ account: lot.account, accountLabel: label(ledger, lot.account), commodity: lot.commodity, units: text(lot.units), currency: target, cost: cost === null ? null : text(cost), unitCost: lot.unitCost, costCurrency: lot.costCurrency, costDate: lot.date, costLabel: lot.label, price: quote?.amount ?? null, priceDate: quote?.date ?? null, marketValue: value === null ? null : text(value), unrealizedPnl: value === null || cost === null || lot.units.isNegative() || target !== lot.costCurrency ? null : text(value.minus(cost)), status });
+    }
+  }
+  const selected = accounts.filter(account => account.currency === currency && account.role !== 'investment');
+  const selectedPositions = positions.filter(position => position.currency === currency || position.currency === '');
+  const cash = sum(selected.filter(account => account.kind === 'asset' && account.role === 'cash').map(account => account.balance));
+  const previousCash = sum(selected.filter(account => account.kind === 'asset' && account.role === 'cash').map(account => account.opening));
+  const otherAssets = sum(selected.filter(account => account.kind === 'asset' && account.role === 'other').map(account => account.balance));
+  const liabilities = sum(selected.filter(account => account.kind === 'liability').map(account => D.max(new D(account.balance).negated(), 0).toFixed()));
+  const overpayments = sum(selected.filter(account => account.kind === 'liability').map(account => D.max(account.balance, 0).toFixed()));
   const investments = selectedPositions.some(position => position.marketValue === null) ? null : sum(selectedPositions.map(position => position.marketValue!));
   const signedLiabilities = sum(selected.filter(account => account.kind === 'liability').map(account => account.balance));
-  return {month,currency,currencies:moneyCurrencies(ledger),cash:text(cash),investments:investments === null ? null : text(investments),liabilities:text(liabilities),overpayments:text(overpayments),netWorth:investments === null ? null : text(cash.plus(investments).plus(signedLiabilities)),previousCash:text(previousCash),cashChange:text(cash.minus(previousCash)),accounts,positions};
+  return { month, currency, currencies: moneyCurrencies(ledger), cash: text(cash), otherAssets: text(otherAssets), investments: investments === null ? null : text(investments), liabilities: text(liabilities), overpayments: text(overpayments), netWorth: investments === null ? null : text(cash.plus(otherAssets).plus(investments).plus(signedLiabilities)), previousCash: text(previousCash), cashChange: text(cash.minus(previousCash)), accounts, positions, warnings: investments === null ? ['部分持仓缺少可用的同币种直接报价，暂不展示完整投资合计与净资产。'] : [] };
 }

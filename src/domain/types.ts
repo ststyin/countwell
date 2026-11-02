@@ -13,7 +13,10 @@ export interface Posting {
   account: string;
   amount: string;
   currency: string;
-  cost?: { amount: string; currency: string };
+  cost?: { amount: string; currency: string; date?: string | null; label?: string | null };
+  price?: { amount: string; currency: string };
+  weight?: { amount: string; currency: string };
+  flag?: string | null;
 }
 
 export interface LedgerTransaction {
@@ -21,8 +24,9 @@ export interface LedgerTransaction {
   date: string;
   payee: string;
   narration: string;
-  flag: '*' | '!';
+  flag: string;
   tags: string[];
+  links?: string[];
   postings: Posting[];
 }
 
@@ -42,6 +46,20 @@ export interface Ledger {
   transactions: LedgerTransaction[];
   prices: PriceQuote[];
   commodities: string[];
+  roots?: { assets: string; liabilities: string; income: string; expenses: string; equity: string };
+  operatingCurrencies?: string[];
+  files?: { path: string; content: string }[];
+  loadedAt?: string;
+  engine?: { name: string; version: string };
+}
+
+export interface ActivityAmount {
+  amount: string;
+  currency: string;
+  direction: 'in' | 'out' | 'internal';
+  kind: TransactionKind;
+  /** Weight displays explain cost/price transactions; they are not cash flow. */
+  basis: 'units' | 'weight';
 }
 
 export interface Activity extends LedgerTransaction {
@@ -56,6 +74,8 @@ export interface Activity extends LedgerTransaction {
   accountLabel: string;
   fromAccount?: string;
   toAccount?: string;
+  amounts?: ActivityAmount[];
+  amountBasis?: 'units' | 'weight';
 }
 
 export interface CategoryTotal {
@@ -83,6 +103,9 @@ export interface Overview {
   dailyExpenses: { date: string; amount: string }[];
   categories: CategoryTotal[];
   incomeCategories: CategoryTotal[];
+  flowSupported: boolean;
+  previousFlowSupported: boolean;
+  warnings: string[];
 }
 
 export interface AccountBalance {
@@ -103,12 +126,16 @@ export interface InvestmentPosition {
   units: string;
   currency: string;
   /** Total booked cost of this lot, never the purchase cash flow. */
-  cost: string;
-  unitCost: string;
+  cost: string | null;
+  unitCost: string | null;
+  costCurrency?: string | null;
+  costDate?: string | null;
+  costLabel?: string | null;
   price: string | null;
   priceDate: string | null;
   marketValue: string | null;
   unrealizedPnl: string | null;
+  status?: 'ok' | 'missing_price' | 'invalid_price' | 'unsupported_pair';
 }
 
 export interface AccountReport {
@@ -116,6 +143,7 @@ export interface AccountReport {
   currency: string;
   currencies: string[];
   cash: string;
+  otherAssets?: string;
   investments: string | null;
   liabilities: string;
   overpayments: string;
@@ -124,6 +152,7 @@ export interface AccountReport {
   cashChange: string;
   accounts: AccountBalance[];
   positions: InvestmentPosition[];
+  warnings?: string[];
 }
 
 export interface TransactionQuery {
