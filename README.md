@@ -2,6 +2,8 @@
 
 Count well. Live well.
 
+[在线演示](https://countwell-demo.0x1st.workers.dev) · 虚构账本 · PWA
+
 以月度收支为中心的个人财务工具。主应用与加载服务使用 TypeScript，真实账本由官方 Beancount v3 完整加载与校验。支持本地、GitHub、WebDAV、多文件 include、手机与电脑布局和 PWA；内置虚构 demo 可直接体验。
 
 ## 安装与运行
@@ -68,6 +70,8 @@ npm run build
 测试覆盖真实官方引擎、多目录 include、GitHub/WebDAV 回环 HTTP、凭证与目录保护、财务口径和 PWA。详情见 [验证记录](docs/VALIDATION.md)。
 
 ## Cloudflare
+
+演示版已部署到 Workers Static Assets，包含界面、PWA 和内置虚构账本。
 
 `npm run deploy:check` 验证静态构建，`npm run deploy` 可将前端与虚构 demo 发布到 Workers Static Assets。**纯静态部署不包含 Node/Python 加载服务，不能读取电脑上的本地路径。**
 

@@ -61,3 +61,12 @@ Vite 的静态资源响应带 `Vary: Origin`，预缓存请求没有 Origin，�
 - 未使用真实 GitHub／WebDAV 凭证连接远程账本；协议与认证通过本机测试服务验证。
 - 新数据源表单未完成手机视口复测：本轮浏览器视口控制不可用。上面的 320px／390px 验证记录属于前一轮演示版本。
 - 未在 iPhone／Android 真机安装，未部署真实账本后端或 Cloudflare Containers。当前服务只监听本机；静态部署仍不包含 Node/Python 加载能力。
+
+## 2026-11-02：Cloudflare 演示版发布
+
+- 地址：<https://countwell-demo.0x1st.workers.dev>，通过 Workers Static Assets 发布界面、PWA 与内置虚构账本。未上传真实账本、连接配置或凭证，未部署真实账本加载服务。
+- `npm run deploy:check` 与生产构建通过；部署配置修复后再次执行 Wrangler dry-run 通过。
+- 线上发现默认 HTML 规范化将 `/offline.html` 重定向到 `/offline`。现有 Service Worker 拒绝缓存重定向响应，因此在 `wrangler.jsonc` 设置 `assets.html_handling: "none"`，保持 HTML 文件原路径直接返回。
+- 重新发布后，`/`、`/index.html`、`/offline.html`、PWA 清单、Service Worker、2 个构建资源和 3 个图标均通过 HTTPS 直接返回 200；首页内容、应用描述与版本化 Service Worker 检查通过。
+- `npx vitest run tests/pwa.test.ts`：7 项通过，保留原有缓存范围与完整应用壳更新保护。
+- 本轮未完成真机安装及线上浏览器离线复测；内置浏览器远端导航超时，线上验证采用实际 HTTP 请求。
