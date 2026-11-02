@@ -34,6 +34,9 @@ export function useLedgerSource() {
       if (!mounted.current || generation !== operation.current) return
       setBackendAvailable(true); setStatus(next)
       if (next.lastError) setError(next.lastError)
+      if (!next.configured && !next.connected && snapshotId.current) {
+        snapshotId.current = null; setLedger(loadDemoLedger()); setReal(false); setNeedsConnection(false); setError(null); remember(false)
+      }
       if (next.connected && next.snapshotId !== snapshotId.current) {
         const snapshot = await sourceRequest<SourceSnapshot>('/api/ledger/snapshot')
         if (mounted.current && generation === operation.current) apply(snapshot)

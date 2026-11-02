@@ -40,7 +40,8 @@ export default function App() {
   const overview = getOverview(ledger, route.month, currency)
   const active = navigation.find(item => item.page === route.page)!
   useEffect(() => {
-    if (!sourceController.real || !sourceController.status?.source) return
+    if (!sourceController.real) { sourceIdentity.current = ''; return }
+    if (!sourceController.status?.source) return
     const identity = JSON.stringify(sourceController.status.source)
     if (sourceIdentity.current !== identity) {
       sourceIdentity.current = identity
@@ -69,7 +70,7 @@ export default function App() {
     const close = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setSourceOpen(false)
       if (event.key === 'Tab') {
-        const elements = Array.from(document.querySelectorAll<HTMLElement>('.source-drawer button:not(:disabled), .source-drawer a[href], .source-drawer input'))
+        const elements = Array.from(document.querySelectorAll<HTMLElement>('.source-drawer button:not(:disabled), .source-drawer a[href], .source-drawer input, .source-drawer select'))
         const first = elements[0], last = elements.at(-1)
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
