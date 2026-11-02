@@ -75,4 +75,6 @@ npm run build
 
 `npm run deploy:check` 验证静态构建，`npm run deploy` 可将前端与虚构 demo 发布到 Workers Static Assets。**纯静态部署不包含 Node/Python 加载服务，不能读取电脑上的本地路径。**
 
-真实账本的远程部署需要带 Python 的后端及访问控制，例如后续使用 Cloudflare Containers。当前本机加载服务仅监听 127.0.0.1，请勿直接无认证暴露到公网。PWA 更新与缓存见 [docs/PWA.md](docs/PWA.md)。
+若需在云端即时读取 GitHub／WebDAV 原始文件，需要带 Python 的后端及访问控制，例如 Cloudflare Containers。本机加载服务仅监听 127.0.0.1，请勿直接无认证暴露到公网。PWA 更新与缓存见 [docs/PWA.md](docs/PWA.md)。
+
+私有 GitHub 账本也支持“本机官方校验 → 受保护 Worker 快照”的只读部署，无需云端 Python 或财务数据库。使用独立的私有 Worker、GitHub 登录与服务器端快照文件，详见 [私有云账本](docs/PRIVATE_CLOUD.md)。

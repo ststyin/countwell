@@ -70,3 +70,13 @@ Vite 的静态资源响应带 `Vary: Origin`，预缓存请求没有 Origin，�
 - 重新发布后，`/`、`/index.html`、`/offline.html`、PWA 清单、Service Worker、2 个构建资源和 3 个图标均通过 HTTPS 直接返回 200；首页内容、应用描述与版本化 Service Worker 检查通过。
 - `npx vitest run tests/pwa.test.ts`：7 项通过，保留原有缓存范围与完整应用壳更新保护。
 - 本轮未完成真机安装及线上浏览器离线复测；内置浏览器远端导航超时，线上验证采用实际 HTTP 请求。
+
+## 2026-11-03：私有云账本与 GitHub 登录
+
+- `npm test`：10 个文件、101 项全部通过，新增 GitHub OAuth 与私有接口测试 24 项、同步工具测试 6 项、登录入口未认证不渲染私有内容测试 1 项。测试均使用虚构数据。
+- 公开版本与私有版本均通过 TypeScript 检查和生产构建；独立输出 `dist/` 与 `dist-private/`，两者的 Service Worker 均已注入构建版本。
+- 实际私库只读克隆后通过官方引擎校验。源文件、生成快照和连接配置只保存在私有临时目录或忽略的 `.countwell/cloud/`，没有加入 Git 或前端静态资源。
+- 验证了不提供私有快照文件时，公共项目仍可完成完整 TypeScript 检查；构建资源不包含实际账本源文件内容。
+- 云端测试覆盖本人数字 ID 限制、OAuth state/PKCE、篡改及过期会话、CSRF、Origin、匿名接口拒绝、只读限制、退出与缓存隔离。独立只读复核未发现契约范围内可操作问题。
+- 首次私有部署使用没有真实交易的占位快照；GitHub 应用凭证配置后，才执行实际账本同步。真实用户 OAuth 回调和真实账本网页显示仍需完成一次应用配置后验证。
+- 受保护入口 `https://countwell-private.0x1st.workers.dev` 已实际部署；线上 5 个财务接口匿名请求均返回 `401 UNAUTHENTICATED` 和 `no-store, private`，3 个私有源码路径返回 404，未配置 OAuth 凭证时保持拒绝访问。

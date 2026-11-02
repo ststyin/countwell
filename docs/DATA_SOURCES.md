@@ -86,4 +86,6 @@ include "months/*.bean"
 
 ## Cloudflare 部署范围
 
-当前真实账本加载服务需要 Node.js + Python。`wrangler deploy` 的静态部署仍然只部署前端与虚构演示资源，不能读取浏览者电脑上的路径，也不能执行此官方 Python 引擎。远程使用需部署带 Python 的加载服务并加入访问控制，例如后续使用 Cloudflare Containers；不要将本机加载接口直接无认证暴露到公网。
+本节的即时加载服务需要 Node.js + Python。`wrangler deploy` 的静态演示部署只包含前端与虚构数据，不能读取浏览者电脑上的路径，也不能执行此官方 Python 引擎。若需在云端即时读取源文件，应部署带 Python 的加载服务并加入访问控制，例如 Cloudflare Containers；不要将本机加载接口直接无认证暴露到公网。
+
+GitHub 账本另支持受保护的 Worker 快照部署：官方校验在本机执行，云端 GitHub 登录通过后才返回快照，无需云端 Python 或财务数据库。步骤与同步范围见 [私有云账本](PRIVATE_CLOUD.md)。
