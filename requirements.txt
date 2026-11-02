@@ -1,0 +1,2 @@
+# The official Python engine is invoked by the TypeScript loading module.
+beancount>=3.2.3,<4
