@@ -1,0 +1,4 @@
+2000-01-01 open Assets:Bank
+  display_name: "验证银行"
+2000-01-01 open Income:Salary
+2000-01-01 open Expenses:Food

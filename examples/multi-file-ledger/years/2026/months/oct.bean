@@ -1,0 +1,6 @@
+2026-10-25 * "验证公司" "虚构工资"
+  Assets:Bank 1234.56 CNY
+  Income:Salary
+2026-10-31 ! "验证餐馆" "虚构午餐"
+  Expenses:Food 34.56 CNY
+  Assets:Bank

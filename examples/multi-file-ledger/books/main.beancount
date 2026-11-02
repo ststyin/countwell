@@ -1,0 +1,4 @@
+option "title" "接入验证账本（虚构）"
+option "operating_currency" "CNY"
+include "../common/*.beancount"
+include "../years/2026/index.bean"
