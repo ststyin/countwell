@@ -11,6 +11,8 @@
     "start": "tsx server/start.ts",
     "test": "vitest run",
     "typecheck": "tsc -b",
+    "cloud:build": "tsc -b && node scripts/build-cloud.mjs",
+    "cloud:sync": "node --import tsx scripts/sync-cloud-ledger.ts",
     "deploy": "npm run build && wrangler deploy",
     "deploy:check": "npm run build && wrangler deploy --dry-run"
   },

@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-private/
 .vite/
 .DS_Store
 coverage/

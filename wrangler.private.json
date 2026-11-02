@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "countwell-private",
+  "main": "cloud/worker.ts",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist-private",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "html_handling": "none",
+    "not_found_handling": "single-page-application"
+  },
+  "rules": [
+    { "type": "Text", "globs": ["**/*.snapshot.txt"], "fallthrough": true }
+  ],
+  "vars": { "GITHUB_ALLOWED_USER_ID": "" }
+}
