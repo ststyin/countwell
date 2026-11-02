@@ -9,3 +9,7 @@ test-results/
 playwright-report/
 .wrangler/
 .dev.vars
+.venv/
+.countwell/
+__pycache__/
+*.pyc
