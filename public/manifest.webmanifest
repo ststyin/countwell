@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Countwell · 看懂每一笔钱",
+  "name": "Countwell",
   "short_name": "Countwell",
-  "description": "以月度收支为中心的个人财务总览。当前演示使用虚构的 Beancount 账本。",
+  "description": "Count well. Live well.",
   "lang": "zh-CN",
   "start_url": "/",
   "scope": "/",

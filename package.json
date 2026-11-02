@@ -1,5 +1,6 @@
 {
   "name": "countwell",
+  "description": "Count well. Live well.",
   "private": true,
   "version": "0.1.0",
   "type": "module",

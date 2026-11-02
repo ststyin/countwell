@@ -1,5 +1,7 @@
 # Countwell
 
+Count well. Live well.
+
 以月度收支为中心的个人财务工具。主应用与加载服务使用 TypeScript，真实账本由官方 Beancount v3 完整加载与校验。支持本地、GitHub、WebDAV、多文件 include、手机与电脑布局和 PWA；内置虚构 demo 可直接体验。
 
 ## 安装与运行
