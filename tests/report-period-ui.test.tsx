@@ -51,11 +51,12 @@ describe('report period presentation', () => {
     expect(html).toContain('USD')
     expect(html).toContain('Unused')
     expect(html).toContain('暂无记录')
+    expect(html).not.toContain('其他账户')
     expect(html).not.toContain('本月')
     expect(html).not.toContain('截至月末')
   })
 
-  it('shows a monetary fund balance under other assets, not cash', () => {
+  it('shows a monetary fund balance under investments, not cash or other assets', () => {
     const fund = parseDemoLedger(`
 2026-01-01 open Assets:Bank
 2026-01-01 open Assets:Investment:Fund:Example
@@ -66,9 +67,10 @@ describe('report period presentation', () => {
   Equity:Opening -150 CNY
 `)
     const html = renderToStaticMarkup(<AccountsPage ledger={fund} currency="CNY" onAccount={() => {}} />)
-    const cashSection = html.slice(html.indexOf('class="panel account-list-panel"'), html.indexOf('其他资产'))
+    const cashSection = html.slice(html.indexOf('class="panel account-list-panel"'), html.indexOf('投资持仓'))
     expect(cashSection).not.toContain('Example')
-    expect(html.slice(html.indexOf('其他资产'))).toContain('Example')
+    expect(html.slice(html.indexOf('投资持仓'))).toContain('Example')
+    expect(html).not.toContain('其他账户')
     expect(html).toContain('150.00')
   })
 

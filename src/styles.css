@@ -519,6 +519,19 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .account-balance .account-change > .money { color: var(--text-secondary); }
 .account-row-arrow { color: var(--muted); width: 13px; }
 .investment-panel { margin-top: 18px; }
+.investment-item + .investment-item, .investment-item + .account-row { border-top: 1px solid var(--line-soft); }
+.investment-item-summary { display: grid; grid-template-columns: 35px minmax(0, 1fr) auto 16px; align-items: center; gap: 10px; min-height: 70px; padding: 12px 0; list-style: none; cursor: pointer; }
+.investment-item-summary::-webkit-details-marker { display: none; }
+.investment-item-summary::marker { display: none; }
+.investment-item-name { min-width: 0; }
+.investment-item-name strong { display: block; font-size: 13px; font-weight: 450; overflow-wrap: anywhere; }
+.investment-item-name small, .investment-item-value small { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
+.investment-item-value { text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; }
+.investment-chevron { color: var(--muted); transition: transform .18s; }
+.investment-item[open] .investment-chevron { transform: rotate(180deg); }
+.investment-item-detail { padding: 0 0 14px; }
+.investment-item-detail .position-row { border-top: 1px solid var(--line-soft); }
+.investment-transactions { margin-top: 4px; }
 .position-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 15px 0; }
 .position-row + .position-row { border-top: 1px solid var(--line-soft); }
 .position-name { display: flex; align-items: center; gap: 11px; min-width: 175px; }
