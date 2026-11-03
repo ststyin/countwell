@@ -2,7 +2,7 @@
 
 公开演示与私有账本站点分别部署。私有版先验证 GitHub 登录，只允许账本仓库所有者的数字用户 ID；同名账号或其他 GitHub 用户不能读取账本。
 
-原始 Beancount 文件保留在 GitHub。本机用官方引擎完整校验，再生成可重建的 JSON 快照文件，作为 Worker 后端模块发布。无需财务数据库，也不需要把本机 GitHub Token 交给 Worker。快照不进入网页静态资源、Git 提交或 PWA 缓存。
+原始 Beancount 文件保留在 GitHub。同步过程用官方引擎完整校验，再生成可重建的 JSON 快照文件，作为 Worker 后端模块发布。无需财务数据库，也不需要把本机 GitHub Token 交给 Worker。快照不进入网页静态资源、Git 提交或 PWA 缓存。
 
 ## 首次同步
 
@@ -44,7 +44,7 @@ npm run cloud:auto:install -- --app-ref <Countwell完整提交SHA> --account-id 
 
 安装器沿用 `.countwell/cloud/source.json` 中的来源与固定账号 ID，仅添加 `.github/workflows/countwell-sync.yml`，不修改账本原文或其他工作流。首次只开放手动验证；在 Actions 的 Run workflow 中选择 `validate_only=true` 可以先验证读取、校验和构建。
 
-为 CI 创建专用的 Cloudflare Account API Token，授予已有私有 Worker 的 **Editor** 权限，并将资源范围限定为该 Worker。将它保存为账本私库的 Actions Secret `CLOUDFLARE_API_TOKEN`。无需将本机 Cloudflare OAuth 凭证、GitHub PAT 或站点的三个登录／会话 Secret 复制到 CI。
+为 CI 创建专用的 Cloudflare Account API Token，授予已有私有 Worker 的 **Editor** 权限，并将资源范围限定为该 Worker。在账本私库的 `Settings → Secrets and variables → Actions → New repository secret` 中，将它保存为 `CLOUDFLARE_API_TOKEN`；应保存到账本仓库，而非 Countwell 应用仓库。无需将本机 Cloudflare OAuth 凭证、GitHub PAT 或站点的三个登录／会话 Secret 复制到 CI。
 
 安装器负责配置非敏感仓库变量：
 
