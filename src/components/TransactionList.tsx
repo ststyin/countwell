@@ -19,12 +19,12 @@ export default function TransactionList({ transactions }: { transactions: Activi
     return <details className={`transaction-row transaction-${tx.kind} direction-${tx.direction}`} key={tx.id}>
       <summary>
         <span className={`transaction-icon ${tx.kind}-icon`}><CategoryIcon name={tx.category} kind={tx.kind} size={19} /></span>
-        <span className="transaction-info"><span className="transaction-title">{tx.payee || tx.narration || '无描述交易'}{tx.payee && tx.narration && tx.payee.trim() !== tx.narration.trim() && <span className="transaction-narration">· {tx.narration}</span>}<span className="transaction-kind">{kindLabels[tx.kind]}</span>{tx.flag === '!' && <CircleAlert size={13} className="pending-indicator" aria-label="待核对" />}</span><span className="transaction-subtitle">{shortDate(tx.date)}<span className="mini-dot" />{label}{tx.amountBasis === 'weight' ? ' · 记账权重' : ''}</span></span>
+        <span className="transaction-info"><span className="transaction-title">{tx.narration.trim() || '无描述交易'}<span className="transaction-kind">{kindLabels[tx.kind]}</span>{tx.flag === '!' && <CircleAlert size={13} className="pending-indicator" aria-label="待核对" />}</span><span className="transaction-subtitle">{shortDate(tx.date)}<span className="mini-dot" />{label}{tx.amountBasis === 'weight' ? ' · 记账权重' : ''}</span></span>
         <span className={`transaction-amount ${tx.direction === 'in' ? 'income-tone' : tx.direction === 'out' ? 'expense-tone' : ''}`}>{!hidden && sign}<Money amount={tx.amount} currency={tx.currency} />{tx.currency !== 'CNY' && <small>{tx.currency}</small>}{otherAmounts.map((amount, index) => <small key={index}>{kindLabels[amount.kind]} {hidden ? '••••' : `${amount.direction === 'in' ? '+' : amount.direction === 'out' ? '−' : ''}${amount.amount}`}{amount.currency !== 'CNY' && ` ${amount.currency}`}{amount.basis === 'weight' ? ' · 权重' : ''}</small>)}</span>
         <ChevronDown size={15} className="transaction-chevron" />
       </summary>
       <div className="transaction-details">
-        <div className="transaction-detail-header"><span>{tx.narration}</span><span>{tx.flag === '!' ? '待核对' : tx.flag === '*' ? '已确认' : `交易标记：${tx.flag}`}</span></div>
+        <div className="transaction-detail-header"><span>支付方式：{tx.payee.trim() || '未填写'}</span><span>{tx.flag === '!' ? '待核对' : tx.flag === '*' ? '已确认' : `交易标记：${tx.flag}`}</span></div>
         {tx.kind === 'transfer' && tx.fromAccount && <p className="transfer-description">{tx.fromAccount}<ArrowRight size={13} />{tx.toAccount}</p>}
         <div className="posting-header"><span>复式分录</span></div>
         <div className="posting-list">{tx.postings.map((posting, index) => <div className="posting-row" key={index}>

@@ -17,18 +17,25 @@ const ledger = parseDemoLedger(`
   Assets:Card -25 CNY
 `)
 
-function titleFor(narration: string) {
+function renderTransaction(narration: string, overrides: { payee?: string; narration?: string } = {}) {
   const transaction = getTransactions(ledger, { month: '2026-10' }).find(item => item.narration === narration)!
-  const html = renderToStaticMarkup(<TransactionList transactions={[transaction]} />)
-  return html.match(/<span class="transaction-title">(.*?)<span class="transaction-kind">/)?.[1]
+  return renderToStaticMarkup(<TransactionList transactions={[{ ...transaction, ...overrides }]} />)
 }
 
 describe('transaction list description', () => {
-  it('shows the description after the payment name in the collapsed row', () => {
-    expect(titleFor('示例商店')).toContain('示例信用卡<span class="transaction-narration">· 示例商店</span>')
+  it('shows only the description in the summary and payment name in the details', () => {
+    const html = renderTransaction('示例商店')
+    const summary = html.slice(html.indexOf('<summary>'), html.indexOf('</summary>'))
+    const details = html.slice(html.indexOf('class="transaction-detail-header"'))
+    expect(summary).toContain('示例商店')
+    expect(summary).not.toContain('示例信用卡')
+    expect(details).toContain('支付方式：示例信用卡')
   })
-  it('avoids duplicating the description when the payment name is absent or identical', () => {
-    expect(titleFor('只有描述')).toBe('只有描述')
-    expect(titleFor('相同内容')).toBe('相同内容')
+  it('handles a missing payment name or description without inventing either', () => {
+    const noPayee = renderTransaction('只有描述')
+    expect(noPayee).toContain('支付方式：未填写')
+    const noNarration = renderTransaction('示例商店', { narration: '' })
+    expect(noNarration.slice(noNarration.indexOf('<summary>'), noNarration.indexOf('</summary>'))).toContain('无描述交易')
+    expect(noNarration).toContain('支付方式：示例信用卡')
   })
 })
