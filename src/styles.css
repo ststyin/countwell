@@ -75,9 +75,9 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 
 .app-shell { min-height: 100dvh; }
 .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 20; width: 224px; display: flex; flex-direction: column; padding: 31px 19px 22px; border-right: 1px solid var(--line-soft); background: var(--bg); }
-.brand { display: inline-flex; align-items: center; gap: 11px; padding: 0 11px; font-size: 23px; font-weight: 600; letter-spacing: -.8px; }
-.brand-mark { display: inline-flex; align-items: center; justify-content: center; width: 35px; height: 35px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); font-family: Georgia, 'Times New Roman', serif; font-size: 28px; font-weight: 400; line-height: 1; letter-spacing: -2px; padding-right: 2px; }
-.brand-mark > span { display: none; }
+.brand { display: inline-flex; align-items: center; align-self: flex-start; min-width: 44px; min-height: 44px; margin-left: 11px; border-radius: 15px; }
+.brand-mark { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 44px; height: 44px; border: 1px solid color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 15px; background: var(--accent-soft); color: var(--accent); }
+.brand-icon { width: 30px; height: 30px; }
 .nav-list { display: flex; flex-direction: column; gap: 7px; margin-top: 48px; }
 .nav-link { display: flex; align-items: center; gap: 13px; min-height: 49px; padding: 12px 15px; color: var(--text-secondary); border-radius: 12px; font-size: 14px; font-weight: 450; }
 .nav-link:hover { background: var(--surface-soft); color: var(--text); }
@@ -185,8 +185,6 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 
 .skip-link { position: fixed; z-index: 200; top: 12px; left: 240px; transform: translateY(-150%); padding: 11px 17px; border-radius: 10px; background: var(--accent); color: var(--bg); font-size: 13px; }
 .skip-link:focus { transform: translateY(0); }
-.brand > span:last-child { font-size: 22px; }
-.brand-dot { color: var(--accent); }
 .sidebar-caption { margin: 7px 0 0 59px; color: var(--muted); font-size: 11px; letter-spacing: .8px; }
 .nav-active-dot { width: 4px; height: 4px; border-radius: 50%; margin-left: auto; background: var(--accent); }
 .source-card { width: 100%; text-align: left; }
@@ -398,8 +396,9 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .sidebar { display: none; }
   .main-content { margin-left: 0; }
   .topbar { min-height: 83px; gap: 10px; padding: calc(18px + env(safe-area-inset-top, 0px)) 20px 16px; border-bottom: 0; }
-  .mobile-brand { display: inline-flex; align-items: center; gap: 8px; font-size: 21px; font-weight: 600; letter-spacing: -.6px; }
-  .mobile-brand .brand-mark { width: 30px; height: 30px; border-radius: 10px; font-size: 24px; }
+  .mobile-brand { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; min-width: 44px; min-height: 44px; border-radius: 14px; }
+  .mobile-brand .brand-mark { width: 40px; height: 40px; border-radius: 14px; }
+  .mobile-brand .brand-icon { width: 28px; height: 28px; }
   .topbar-meta { display: none; }
   .topbar-actions { gap: 7px; }
   .topbar-actions .icon-button { min-width: 40px; width: 40px; height: 40px; border-radius: 50%; background: var(--surface); border-color: transparent; }
@@ -455,8 +454,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 @media (max-width: 380px) {
   .topbar { padding-left: 16px; padding-right: 16px; }
   .page-content { padding-left: 16px; padding-right: 16px; }
-  .mobile-brand { font-size: 19px; gap: 6px; }
-  .mobile-brand .brand-mark { display: none; }
   .topbar-actions { gap: 5px; }
   .page-header { flex-wrap: wrap; gap: 15px; }
   .page-header > :first-child { flex: 1 1 145px; }
@@ -741,7 +738,9 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 
 .cloud-gate { display: grid; min-height: 100dvh; place-items: center; padding: max(28px, env(safe-area-inset-top, 0px)) 22px max(28px, env(safe-area-inset-bottom, 0px)); }
 .cloud-login-panel { width: min(100%, 370px); padding: 35px 30px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
-.cloud-brand { display: flex; align-items: center; gap: 11px; color: var(--text); font-size: 25px; font-weight: 600; letter-spacing: -.8px; }
+.cloud-brand { display: flex; align-items: center; }
+.cloud-brand .brand-mark { width: 50px; height: 50px; border-radius: 17px; }
+.cloud-brand .brand-icon { width: 34px; height: 34px; }
 .cloud-login-panel h1 { margin-top: 38px; font-size: 22px; font-weight: 500; letter-spacing: -.5px; }
 .cloud-login-panel > .button { display: flex; width: 100%; min-height: 46px; margin-top: 25px; font-size: 13px; }
 .cloud-login-status { display: flex; align-items: center; gap: 9px; min-height: 46px; margin-top: 25px; color: var(--muted); font-size: 13px; }

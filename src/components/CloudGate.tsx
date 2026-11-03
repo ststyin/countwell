@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Github, LoaderCircle, RefreshCw } from 'lucide-react'
+import BrandIcon from './BrandIcon'
 
 interface AuthStatus {
   cloud: true
@@ -73,7 +74,7 @@ export default function CloudGate({ children }: { children: ReactNode }) {
   const unavailable = state.phase === 'signed-out' && !state.configured
   return <main className="cloud-gate">
     <section className="cloud-login-panel" aria-labelledby="cloud-login-title">
-      <div className="cloud-brand"><span className="brand-mark">c<span>.</span></span><span>countwell.</span></div>
+      <div className="cloud-brand"><span className="brand-mark"><BrandIcon /></span><span className="sr-only">Countwell</span></div>
       <h1 id="cloud-login-title">登录账本</h1>
       {state.phase === 'checking' ? <div className="cloud-login-status" role="status"><LoaderCircle size={18} className="spin" />正在连接…</div>
         : state.phase === 'error' ? <><p className="cloud-login-error" role="alert">暂时无法连接，请重试。</p><button className="button" onClick={() => void check()}><RefreshCw size={16} />重新连接</button></>

@@ -12,6 +12,7 @@ import type { Page } from './lib/route'
 import { usePwa } from './hooks/usePwa'
 import { useLedgerSource } from './hooks/useLedgerSource'
 import { cloudMode } from './lib/runtime'
+import BrandIcon from './components/BrandIcon'
 
 const navigation = [
   { page: 'overview', title: '收支总览', short: '总览', icon: LayoutDashboard },
@@ -104,12 +105,12 @@ export default function App() {
     <div className="app-shell">
       <a className="skip-link" href="#page-main" onClick={event => { event.preventDefault(); document.getElementById('page-main')?.focus() }}>跳到主要内容</a>
       <aside className="sidebar">
-        <a className="brand" href={routeHref('overview', route.month)} aria-label="Countwell 首页"><span className="brand-mark">c<span>.</span></span><span>countwell<span className="brand-dot">.</span></span></a>
+        <a className="brand" href={routeHref('overview', route.month)} aria-label="Countwell 首页"><span className="brand-mark"><BrandIcon /></span></a>
         <nav className="nav-list" aria-label="主要导航">{navigation.map(item => <a key={item.page} href={routeHref(item.page, route.month)} className={`nav-link ${route.page === item.page ? 'active' : ''}`} aria-current={route.page === item.page ? 'page' : undefined}><item.icon className="nav-icon" size={19} strokeWidth={1.7} /><span>{item.title}</span>{route.page === item.page && <span className="nav-active-dot" />}</a>)}</nav>
         <div className="sidebar-footer"><button className="source-card" onClick={openSource}><div className="source-card-top"><BookOpen size={17} /><ArrowUpRight size={15} /></div><strong>{ledger.title}</strong><span className="source-status"><span />{sourceController.real ? '真实账本 · 只读' : cloudMode ? '正在读取' : '演示账本'}</span></button></div>
       </aside>
       <main className="main-content" id="page-main" tabIndex={-1}>
-        <div className="topbar"><a className="mobile-brand" href={routeHref('overview', route.month)}><span className="brand-mark">c<span>.</span></span><span>countwell.</span></a><div className="topbar-meta">{ledger.title} <ChevronRight size={13} /> <span>{active.title}</span></div><div className="topbar-actions"><span className="demo-badge"><span />{sourceController.real ? '真实账本' : sourceController.needsConnection ? '尚未加载' : '演示数据'}</span><select className="currency-picker" aria-label="展示币种" value={currency} onChange={e => setCurrency(e.target.value)}>{Array.from(new Set([...overview.currencies, currency])).map(c => <option key={c} value={c}>{c}</option>)}</select><button className="icon-button" onClick={() => setHidden(v => !v)} aria-label={hidden ? '显示金额' : '隐藏金额'} aria-pressed={hidden}>{hidden ? <EyeOff size={19} /> : <Eye size={19} />}</button></div></div>
+        <div className="topbar"><a className="mobile-brand" href={routeHref('overview', route.month)} aria-label="Countwell 首页"><span className="brand-mark"><BrandIcon /></span></a><div className="topbar-meta">{ledger.title} <ChevronRight size={13} /> <span>{active.title}</span></div><div className="topbar-actions"><span className="demo-badge"><span />{sourceController.real ? '真实账本' : sourceController.needsConnection ? '尚未加载' : '演示数据'}</span><select className="currency-picker" aria-label="展示币种" value={currency} onChange={e => setCurrency(e.target.value)}>{Array.from(new Set([...overview.currencies, currency])).map(c => <option key={c} value={c}>{c}</option>)}</select><button className="icon-button" onClick={() => setHidden(v => !v)} aria-label={hidden ? '显示金额' : '隐藏金额'} aria-pressed={hidden}>{hidden ? <EyeOff size={19} /> : <Eye size={19} />}</button></div></div>
         <div className="page-content">
           {pwa.offline && <div className="notice"><WifiOff size={17} /><span>{sourceController.real ? '当前离线 · 显示已加载账本' : '当前离线 · 演示账本可用'}</span></div>}
           {sourceController.real && sourceController.backendAvailable === false && <div className="notice"><span>连接中断，显示上次加载的账本。</span><button className="text-action" onClick={() => go('settings')}>检查连接</button></div>}
