@@ -10,7 +10,7 @@ export function Money({ amount, currency, className = '', symbol = false, signed
   const display = useContext(DisplayContext)
   const unit = currency ?? display.currency
   const value = amount === null ? '—' : `${signed && !amount.startsWith('-') && amount !== '0' ? '+' : ''}${formatAmount(amount)}`
-  return <span className={`money ${className}`} aria-label={display.hidden ? '金额已隐藏' : undefined}>{display.hidden ? '••••' : <>{symbol && amount !== null && <span className="currency-symbol">{currencySymbols[unit] ?? unit + ' '}</span>}{value}</>}</span>
+  return <span className={`money ${className}`} aria-label={display.hidden ? '金额已隐藏' : undefined}>{display.hidden ? '••••' : <>{symbol && unit !== 'CNY' && amount !== null && <span className="currency-symbol">{currencySymbols[unit] ?? unit + ' '}</span>}{value}</>}</span>
 }
 
 export function CategoryIcon({ name, kind, size = 18 }: { name: string; kind?: string; size?: number }) {
