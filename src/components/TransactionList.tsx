@@ -11,7 +11,7 @@ export default function TransactionList({ transactions }: { transactions: Activi
   const rawAmount = (amount: string) => <span className="money">{hidden ? '••••' : amount}</span>
   if (!transactions.length) return <EmptyState title="暂无交易" description="" />
   return <div className="transaction-list">{transactions.map(tx => {
-    const sign = tx.direction === 'out' ? '−' : tx.direction === 'in' ? '+' : ''
+    const sign = tx.amountUnavailable ? '' : tx.direction === 'out' ? '−' : tx.direction === 'in' ? '+' : ''
     const label = tx.kind === 'refund' ? '冲减支出' : tx.kind === 'transfer' ? '账户转账' : tx.kind === 'investment' ? '持仓变动' : tx.category
     const primaryIndex = tx.amounts?.findIndex(amount => amount.amount === tx.amount && amount.currency === tx.currency && amount.direction === tx.direction && amount.kind === tx.kind && amount.basis === tx.amountBasis) ?? -1
     const otherAmounts = tx.amounts?.filter((_, index) => index !== primaryIndex) ?? []
@@ -20,7 +20,7 @@ export default function TransactionList({ transactions }: { transactions: Activi
       <summary>
         <span className={`transaction-icon ${tx.kind}-icon`}><CategoryIcon name={tx.category} kind={tx.kind} size={19} /></span>
         <span className="transaction-info"><span className="transaction-title">{tx.narration.trim() || '无描述交易'}<span className="transaction-kind">{kindLabels[tx.kind]}</span>{tx.flag === '!' && <CircleAlert size={13} className="pending-indicator" aria-label="待核对" />}</span><span className="transaction-subtitle">{shortDate(tx.date)}<span className="mini-dot" />{label}{tx.amountBasis === 'weight' ? ' · 记账权重' : ''}</span></span>
-        <span className={`transaction-amount ${tx.direction === 'in' ? 'income-tone' : tx.direction === 'out' ? 'expense-tone' : ''}`}>{!hidden && sign}<Money amount={tx.amount} currency={tx.currency} />{tx.currency !== 'CNY' && <small>{tx.currency}</small>}{otherAmounts.map((amount, index) => <small key={index}>{kindLabels[amount.kind]} {hidden ? '••••' : `${amount.direction === 'in' ? '+' : amount.direction === 'out' ? '−' : ''}${amount.amount}`}{amount.currency !== 'CNY' && ` ${amount.currency}`}{amount.basis === 'weight' ? ' · 权重' : ''}</small>)}</span>
+        <span className={`transaction-amount ${tx.direction === 'in' ? 'income-tone' : tx.direction === 'out' ? 'expense-tone' : ''}`}>{!hidden && sign}<Money amount={tx.amountUnavailable ? null : tx.amount} currency={tx.currency} />{tx.currency !== 'CNY' && <small>{tx.currency}</small>}{tx.amountUnavailable && <small>金额待确认</small>}{otherAmounts.map((amount, index) => <small key={index}>{kindLabels[amount.kind]} {hidden ? '••••' : `${amount.direction === 'in' ? '+' : amount.direction === 'out' ? '−' : ''}${amount.amount}`}{amount.currency !== 'CNY' && ` ${amount.currency}`}{amount.basis === 'weight' ? ' · 权重' : ''}</small>)}</span>
         <ChevronDown size={15} className="transaction-chevron" />
       </summary>
       <div className="transaction-details">

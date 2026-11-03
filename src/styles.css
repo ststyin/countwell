@@ -218,6 +218,15 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .stat-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 7px; background: var(--surface-raised); }
 .gold-tone { color: var(--accent); }
 .unit-label { color: var(--muted); font-size: 11px; margin-left: 2px; }
+.credit-spending-panel { margin-top: 16px; }
+.credit-spending-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.credit-spending-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto 15px; align-items: center; gap: 9px; min-height: 52px; padding: 9px 11px; border-radius: 11px; background: var(--surface-soft); text-align: left; }
+.credit-spending-row:hover { background: var(--surface-hover); }
+.credit-spending-icon { display: grid; place-items: center; width: 28px; height: 28px; color: var(--accent); }
+.credit-spending-name { min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+.credit-spending-value { text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; }
+.credit-spending-value small { display: block; color: var(--muted); font-size: 10px; }
+.credit-spending-row > svg { color: var(--muted); }
 .footnote-divider { color: var(--muted); margin: 0 1px; }
 .change-pill:not(.positive) { background: var(--income-soft); color: var(--income); }
 .dashboard-grid { align-items: stretch; }
@@ -407,6 +416,7 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .stat-footnote { font-size: 11px; gap: 4px; padding-top: 12px; }
   .change-pill { font-size: 11px; }
   .dashboard-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; margin-top: 16px; }
+  .credit-spending-list { grid-template-columns: minmax(0, 1fr); }
   .panel { padding: 16px; border-radius: 16px; }
   .section-heading { gap: 9px; margin-bottom: 14px; }
   .section-heading h2 { font-size: 14px; }
