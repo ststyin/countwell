@@ -13,6 +13,8 @@ import { usePwa } from './hooks/usePwa'
 import { useLedgerSource } from './hooks/useLedgerSource'
 import { cloudMode } from './lib/runtime'
 import BrandIcon from './components/BrandIcon'
+import ThemeControl from './components/ThemeControl'
+import { useTheme } from './hooks/useTheme'
 
 const navigation = [
   { page: 'overview', title: '收支总览', short: '总览', icon: LayoutDashboard },
@@ -34,7 +36,7 @@ export default function App() {
   const { route, navigate } = useRoute(ledger.defaultMonth)
   const [hidden, setHidden] = useState(() => readPreference('privacy', 'false') === 'true')
   const [currency, setCurrency] = useState(() => readPreference('currency', 'CNY'))
-  const [theme, setTheme] = useState(() => readPreference('theme', 'dark'))
+  const { preference, setPreference } = useTheme()
   const [sourceOpen, setSourceOpen] = useState(false)
   const sourceTrigger = useRef<HTMLElement | null>(null)
   const openSource = () => { sourceTrigger.current = document.activeElement as HTMLElement; setSourceOpen(true) }
@@ -55,11 +57,6 @@ export default function App() {
     setSourceFileIndex(0)
   }, [sourceController.status?.snapshotId, sourceController.real])
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark'
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f6f5f0' : '#121413')
-    try { localStorage.setItem('countwell.theme', theme) } catch { /* Preferences are optional. */ }
-  }, [theme])
   useEffect(() => {
     try {
       localStorage.setItem('countwell.privacy', String(hidden))
@@ -99,7 +96,7 @@ export default function App() {
       ? <TransactionsPage ledger={ledger} route={route} currency={currency} onFilter={navigate} />
       : route.page === 'accounts'
         ? <AccountsPage ledger={ledger} month={route.month} currency={currency} onAccount={account => go('transactions', { account })} />
-        : <SettingsPage ledger={ledger} theme={theme} onTheme={setTheme} hidden={hidden} onPrivacy={setHidden} onSource={openSource} controller={sourceController} />
+        : <SettingsPage ledger={ledger} hidden={hidden} onSource={openSource} controller={sourceController} />
 
   return <DisplayContext.Provider value={{ hidden, currency }}>
     <div className={`app-shell${sourceOpen ? ' drawer-open' : ''}`}>
@@ -110,7 +107,7 @@ export default function App() {
         <div className="sidebar-footer"><button className="source-card" onClick={openSource}><div className="source-card-top"><BookOpen size={17} /><ArrowUpRight size={15} /></div><strong>{ledger.title}</strong><span className="source-status"><span />{sourceController.real ? '已同步' : cloudMode ? '正在读取' : '演示账本'}</span></button></div>
       </aside>
       <main className="main-content" id="page-main" tabIndex={-1}>
-        <div className="topbar"><a className="mobile-brand" href={routeHref('overview', route.month)} aria-label="Countwell 首页"><span className="brand-mark"><BrandIcon /></span></a><div className="topbar-meta">{ledger.title}</div><div className="topbar-actions">{!sourceController.real && <span className="demo-badge"><span />{sourceController.needsConnection ? '尚未加载' : '演示数据'}</span>}<select className="currency-picker" aria-label="展示币种" value={currency} onChange={e => setCurrency(e.target.value)}>{Array.from(new Set([...overview.currencies, currency])).map(c => <option key={c} value={c}>{c}</option>)}</select><button className="icon-button" onClick={() => setHidden(v => !v)} aria-label={hidden ? '显示金额' : '隐藏金额'} aria-pressed={hidden}>{hidden ? <EyeOff size={19} /> : <Eye size={19} />}</button></div></div>
+        <div className="topbar"><a className="mobile-brand" href={routeHref('overview', route.month)} aria-label="Countwell 首页"><span className="brand-mark"><BrandIcon /></span></a><div className="topbar-meta">{ledger.title}</div><div className="topbar-actions">{!sourceController.real && <span className="demo-badge"><span />{sourceController.needsConnection ? '尚未加载' : '演示数据'}</span>}<select className="currency-picker" aria-label="展示币种" value={currency} onChange={e => setCurrency(e.target.value)}>{Array.from(new Set([...overview.currencies, currency])).map(c => <option key={c} value={c}>{c}</option>)}</select><ThemeControl preference={preference} onChange={setPreference} /><button className="icon-button" onClick={() => setHidden(v => !v)} aria-label={hidden ? '显示金额' : '隐藏金额'} aria-pressed={hidden}>{hidden ? <EyeOff size={19} /> : <Eye size={19} />}</button></div></div>
         <div className="page-content">
           {pwa.offline && <div className="notice"><WifiOff size={17} /><span>离线 · 当前账本</span></div>}
           {sourceController.real && sourceController.backendAvailable === false && <div className="notice"><span>连接中断 · 保留上次数据</span><button className="text-action" onClick={() => go('settings')}>检查连接</button></div>}

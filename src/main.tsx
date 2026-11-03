@@ -5,9 +5,15 @@ import CloudGate from './components/CloudGate'
 import './styles.css'
 import { registerPwa } from './pwa'
 import { cloudMode } from './lib/runtime'
+import { useTheme } from './hooks/useTheme'
+
+function CountwellRoot() {
+  useTheme()
+  return cloudMode ? <CloudGate><App /></CloudGate> : <App />
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>{cloudMode ? <CloudGate><App /></CloudGate> : <App />}</React.StrictMode>,
+  <React.StrictMode><CountwellRoot /></React.StrictMode>,
 )
 
 registerPwa()
