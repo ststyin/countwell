@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js';
-import type { AccountBalance, AccountKind, AccountReport, Activity, ActivityAmount, BillingCycle, CreditCardSpending, InvestmentPosition, Ledger, LedgerTransaction, Overview, TransactionQuery, TransactionKind } from './types';
+import type { AccountBalance, AccountKind, AccountReport, Activity, ActivityAmount, BillingCycle, PaymentAccountSpending, InvestmentPosition, Ledger, LedgerTransaction, Overview, TransactionQuery, TransactionKind } from './types';
 import { reportPeriod } from './period';
 export { monthBounds } from './period';
 
@@ -161,15 +161,15 @@ function isCreditCard(ledger: Ledger, account: string): boolean {
     && account.split(':').slice(1).some(part => /^(creditcard|credit-card|credit_card|credit|card|cc|信用卡)$/i.test(part));
 }
 
-type CardContribution = { account: string; currency: string; amount: Decimal | null; direction: 'expense' | 'refund' };
+type PaymentContribution = { account: string; currency: string; amount: Decimal | null; direction: 'expense' | 'refund' };
 
-/** Attribute only the card leg of expense transactions; repayments and transfers are excluded. */
-function cardContributions(ledger: Ledger, transaction: LedgerTransaction, D: typeof Decimal): CardContribution[] {
+/** Attribute expense and refund legs to their financial accounts, excluding transfers. */
+function paymentContributions(ledger: Ledger, transaction: LedgerTransaction, D: typeof Decimal): PaymentContribution[] {
   const expenses = transaction.postings.filter(posting => accountKind(ledger, posting.account) === 'expense');
   if (!expenses.length) return [];
-  const cardPostings = transaction.postings.filter(posting => isCreditCard(ledger, posting.account));
-  const groups = new Map<string, typeof cardPostings>();
-  for (const posting of cardPostings) {
+  const paymentPostings = transaction.postings.filter(posting => ['asset', 'liability'].includes(accountKind(ledger, posting.account) ?? ''));
+  const groups = new Map<string, typeof paymentPostings>();
+  for (const posting of paymentPostings) {
     const key = JSON.stringify([posting.account, posting.currency]);
     groups.set(key, [...(groups.get(key) ?? []), posting]);
   }
@@ -177,33 +177,33 @@ function cardContributions(ledger: Ledger, transaction: LedgerTransaction, D: ty
     account: postings[0].account, currency: postings[0].currency, postings,
     change: postings.reduce((sum, posting) => sum.plus(posting.amount), new D(0)),
   }));
-  const result: CardContribution[] = [];
+  const result: PaymentContribution[] = [];
   for (const entry of entries) {
-    const hasMixedCardSigns = entry.postings.some(posting => new D(posting.amount).isNegative()) && entry.postings.some(posting => new D(posting.amount).isPositive());
-    if (entry.change.isZero() && !hasMixedCardSigns) continue;
+    const hasMixedSigns = entry.postings.some(posting => new D(posting.amount).isNegative()) && entry.postings.some(posting => new D(posting.amount).isPositive());
+    if (entry.change.isZero() && !hasMixedSigns) continue;
     const sameCurrency = expenses.filter(posting => posting.currency === entry.currency);
     const expense = sameCurrency.reduce((sum, posting) => sum.plus(posting.amount), new D(0));
     const hasAnnotations = [...expenses, ...entry.postings].some(posting => posting.cost || posting.price);
     const unmatchedCurrency = !sameCurrency.length;
     const zeroExpense = expense.isZero();
     // A repayment accompanied by a fee, or an unrelated opposing leg, is not a purchase/refund.
-    if (!unmatchedCurrency && !zeroExpense && expense.isPositive() === entry.change.isPositive() && !hasAnnotations && !hasMixedCardSigns) continue;
-    const relatedCardTotal = entries.filter(other => other.currency === entry.currency && other.change.isPositive() === entry.change.isPositive())
+    if (!unmatchedCurrency && !zeroExpense && expense.isPositive() === entry.change.isPositive() && !hasAnnotations && !hasMixedSigns) continue;
+    const relatedPaymentTotal = entries.filter(other => other.currency === entry.currency && other.change.isPositive() === entry.change.isPositive())
       .reduce((sum, other) => sum.plus(other.change.abs()), new D(0));
-    const ambiguous = hasAnnotations || hasMixedCardSigns || unmatchedCurrency || zeroExpense || relatedCardTotal.gt(expense.abs());
+    const ambiguous = hasAnnotations || hasMixedSigns || unmatchedCurrency || zeroExpense || relatedPaymentTotal.gt(expense.abs());
     result.push({ account: entry.account, currency: entry.currency, amount: ambiguous ? null : entry.change.negated(), direction: entry.change.gt(0) ? 'refund' : 'expense' });
   }
   return result;
 }
 
-/** Per-card net consumption in the selected billing period, kept separate by currency. */
-export function getCreditCardSpending(ledger: Ledger, month: string, cycle?: BillingCycle): CreditCardSpending[] {
+/** Net spending for each payment account and currency in the selected period. */
+export function getPaymentAccountSpending(ledger: Ledger, month: string, cycle?: BillingCycle): PaymentAccountSpending[] {
   const { D } = arithmetic(ledger);
   const { start, end } = reportPeriod(month, cycle);
   const totals = new Map<string, { account: string; currency: string; amount: Decimal; unavailable: boolean; transactionCount: number }>();
   for (const transaction of ledger.transactions) {
     if (transaction.date < start || transaction.date > end) continue;
-    for (const item of cardContributions(ledger, transaction, D)) {
+    for (const item of paymentContributions(ledger, transaction, D)) {
       const key = JSON.stringify([item.account, item.currency]);
       const row = totals.get(key) ?? { account: item.account, currency: item.currency, amount: new D(0), unavailable: false, transactionCount: 0 };
       if (item.amount === null) row.unavailable = true;
@@ -216,14 +216,14 @@ export function getCreditCardSpending(ledger: Ledger, month: string, cycle?: Bil
     .sort((a, b) => a.account.localeCompare(b.account) || (a.currency === 'CNY' ? -1 : b.currency === 'CNY' ? 1 : a.currency.localeCompare(b.currency)));
 }
 
-/** The same card legs as the summary, preserving their original transactions for inspection. */
-export function getCreditCardSpendingTransactions(ledger: Ledger, query: TransactionQuery & { account: string; currency: string }): Activity[] {
+/** The same account legs as the summary, preserving their original transactions for inspection. */
+export function getPaymentAccountSpendingTransactions(ledger: Ledger, query: TransactionQuery & { account: string; currency: string }): Activity[] {
   const { D } = arithmetic(ledger);
   const { start, end } = query.month === undefined ? { start: '0001-01-01', end: '9999-12-31' } : reportPeriod(query.month, query.cycle);
   const search = query.search?.toLowerCase() ?? '';
   return ledger.transactions.filter(transaction => transaction.date >= start && transaction.date <= end && (!query.date || transaction.date === query.date))
     .flatMap(transaction => {
-      const item = cardContributions(ledger, transaction, D).find(value => value.account === query.account && value.currency === query.currency);
+      const item = paymentContributions(ledger, transaction, D).find(value => value.account === query.account && value.currency === query.currency);
       if (!item) return [];
       const amounts = activityAmounts(ledger, transaction, D);
       const row = activity(ledger, transaction, amounts, query.currency, item.direction);
@@ -231,6 +231,15 @@ export function getCreditCardSpendingTransactions(ledger: Ledger, query: Transac
         amount: item.amount === null ? row.amount : text(item.amount.abs()), amountUnavailable: item.amount === null, amountBasis: 'units', amounts: [] };
       return !search || `${result.payee}\n${result.narration}\n${result.category}\n${result.accountLabel}\n${result.postings.map(posting => label(ledger, posting.account)).join('\n')}`.toLowerCase().includes(search) ? [result] : [];
     }).reverse();
+}
+
+/** Preserve older credit-card links while using the same allocation rules. */
+export function getCreditCardSpending(ledger: Ledger, month: string, cycle?: BillingCycle): PaymentAccountSpending[] {
+  return getPaymentAccountSpending(ledger, month, cycle).filter(row => isCreditCard(ledger, row.account));
+}
+
+export function getCreditCardSpendingTransactions(ledger: Ledger, query: TransactionQuery & { account: string; currency: string }): Activity[] {
+  return isCreditCard(ledger, query.account) ? getPaymentAccountSpendingTransactions(ledger, query) : [];
 }
 
 export function getTransactions(ledger: Ledger, query: TransactionQuery): Activity[] {

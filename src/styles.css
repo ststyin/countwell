@@ -218,19 +218,12 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .stat-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 7px; background: var(--surface-raised); }
 .gold-tone { color: var(--accent); }
 .unit-label { color: var(--muted); font-size: 11px; margin-left: 2px; }
-.credit-spending-panel { margin-top: 16px; }
-.credit-spending-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
-.credit-spending-row { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 132px; padding: 15px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--line)); border-radius: 15px; background: linear-gradient(130deg, color-mix(in srgb, var(--accent) 12%, var(--surface)), var(--surface-soft) 70%); text-align: left; }
-.credit-spending-tone-1 { background: linear-gradient(130deg, color-mix(in srgb, #7c9685 15%, var(--surface)), var(--surface-soft) 70%); }
-.credit-spending-tone-2 { background: linear-gradient(130deg, color-mix(in srgb, #a28a94 15%, var(--surface)), var(--surface-soft) 70%); }
-.credit-spending-row:hover { border-color: var(--accent); }
-.credit-spending-top { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); }
-.credit-spending-top > svg { flex: none; margin-left: auto; color: var(--muted); }
-.credit-spending-icon { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 10px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); }
-.credit-spending-name { min-width: 0; font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
-.credit-spending-caption { margin-top: auto; padding-top: 16px; color: var(--muted); font-size: 11px; }
-.credit-spending-value { display: flex; align-items: baseline; gap: 7px; margin-top: 5px; font-size: 22px; font-variant-numeric: tabular-nums; }
-.credit-spending-value small { color: var(--muted); font-size: 10px; }
+.payment-spending { margin-top: 18px; }
+.payment-spending h2 { margin-bottom: 12px; color: var(--text); font-size: 15px; font-weight: 500; }
+.payment-spending-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.payment-spending-card .stat-icon { flex: none; }
+.payment-spending-name { min-width: 0; overflow-wrap: anywhere; }
+.payment-spending-unknown { margin-top: 4px; color: var(--muted); font-size: 11px; }
 .footnote-divider { color: var(--muted); margin: 0 1px; }
 .change-pill:not(.positive) { background: var(--income-soft); color: var(--income); }
 .dashboard-grid { align-items: stretch; }
@@ -420,8 +413,8 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .stat-footnote { font-size: 11px; gap: 4px; padding-top: 12px; }
   .change-pill { font-size: 11px; }
   .dashboard-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; margin-top: 16px; }
-  .credit-spending-list { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(200px, 72%); grid-template-columns: none; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x mandatory; padding-bottom: 3px; }
-  .credit-spending-row { scroll-snap-align: start; }
+  .payment-spending-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .payment-spending h2 { font-size: 14px; }
   .panel { padding: 16px; border-radius: 16px; }
   .section-heading { gap: 9px; margin-bottom: 14px; }
   .section-heading h2 { font-size: 14px; }

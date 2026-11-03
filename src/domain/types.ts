@@ -98,12 +98,14 @@ export interface Activity extends LedgerTransaction {
   amountUnavailable?: boolean;
 }
 
-export interface CreditCardSpending {
+export interface PaymentAccountSpending {
   account: string;
   currency: string;
   amount: string | null;
   transactionCount: number;
 }
+
+export type CreditCardSpending = PaymentAccountSpending;
 
 export interface CategoryTotal {
   account: string;

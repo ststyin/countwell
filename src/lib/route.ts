@@ -3,7 +3,7 @@ import type { TransactionKind } from '../domain/types'
 import { billingMonthForDate } from '../domain/period'
 
 export type Page = 'overview' | 'transactions' | 'accounts' | 'settings'
-export interface Route { page: Page; month: string; search: string; kind: TransactionKind | 'all'; account: string; allTime?: boolean; date?: string; section?: 'cash' | 'debt'; cardCurrency?: string }
+export interface Route { page: Page; month: string; search: string; kind: TransactionKind | 'all'; account: string; allTime?: boolean; date?: string; section?: 'cash' | 'debt'; cardCurrency?: string; paymentCurrency?: string }
 const pages = new Set(['overview', 'transactions', 'accounts', 'settings'])
 const kinds = new Set(['all', 'income', 'expense', 'refund', 'transfer', 'investment'])
 
@@ -16,6 +16,8 @@ export function parseRoute(hash: string, defaultMonth = '2026-10'): Route {
   try { billingMonthForDate(date); validDate = true } catch { /* Ignore invalid dates in links. */ }
   const section = params.get('section')
   const cardCurrency = params.get('card_currency') ?? ''
+  const paymentCurrency = params.get('payment_currency') ?? ''
+  const validCurrency = (value: string) => value.length <= 256 && /^(?:[A-Z][A-Z0-9'._-]*|\/[A-Z0-9'._-]*[A-Z][A-Z0-9'._-]*)$/.test(value)
   return {
     page: pages.has(path) ? path as Page : 'overview',
     month: /^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(month) ? month : defaultMonth,
@@ -25,7 +27,8 @@ export function parseRoute(hash: string, defaultMonth = '2026-10'): Route {
     ...(params.get('range') === 'all' ? { allTime: true } : {}),
     ...(validDate ? { date } : {}),
     ...(section === 'cash' || section === 'debt' ? { section } : {}),
-    ...(path === 'transactions' && params.get('account') && cardCurrency.length <= 256 && /^(?:[A-Z][A-Z0-9'._-]*|\/[A-Z0-9'._-]*[A-Z][A-Z0-9'._-]*)$/.test(cardCurrency) ? { cardCurrency } : {}),
+    ...(path === 'transactions' && params.get('account') && validCurrency(cardCurrency) ? { cardCurrency } : {}),
+    ...(path === 'transactions' && params.get('account') && validCurrency(paymentCurrency) ? { paymentCurrency } : {}),
   }
 }
 
@@ -38,6 +41,7 @@ export function routeHref(page: Page, month: string, filters: Partial<Route> = {
   if (filters.date) params.set('date', filters.date)
   if (filters.section) params.set('section', filters.section)
   if (page === 'transactions' && filters.account && filters.cardCurrency) params.set('card_currency', filters.cardCurrency)
+  if (page === 'transactions' && filters.account && filters.paymentCurrency) params.set('payment_currency', filters.paymentCurrency)
   return `#${page}?${params}`
 }
 

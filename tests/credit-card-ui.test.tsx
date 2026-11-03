@@ -36,7 +36,10 @@ const cycle = { mode: 'custom', day: 25, boundary: 'start' } as const
 describe('credit card spending drilldown', () => {
   it('shows only cards with activity, including a refund-only card, and links to the matching period', () => {
     const html = renderToStaticMarkup(<OverviewPage ledger={ledger} month="2026-11" currency="CNY" cycle={cycle} today="2026-12-01" onNavigate={() => {}} />)
-    const cards = html.slice(html.indexOf('credit-spending-panel'), html.indexOf('dashboard-grid'))
+    const cards = html.slice(html.indexOf('class="payment-spending"'), html.indexOf('dashboard-grid'))
+    expect(cards).toContain('支出账户')
+    expect(cards).toContain('class="stat-card drilldown-card payment-spending-card"')
+    expect(cards).not.toContain('信用卡消费')
     expect(cards).toContain('CreditCard:CMB:Visa')
     expect(cards).toContain('110.00')
     expect(cards).toContain('CreditCard:RefundOnly')
@@ -44,7 +47,7 @@ describe('credit card spending drilldown', () => {
     expect(cards).not.toContain('Inactive')
     const href = cards.match(/href="([^"]*CMB[^\"]*)"/)?.[1]?.replaceAll('&amp;', '&')
     expect(href).toBeTruthy()
-    expect(parseRoute(href!)).toMatchObject({ page: 'transactions', month: '2026-11', account: 'Liabilities:CreditCard:CMB:Visa', cardCurrency: 'CNY' })
+    expect(parseRoute(href!)).toMatchObject({ page: 'transactions', month: '2026-11', account: 'Liabilities:CreditCard:CMB:Visa', paymentCurrency: 'CNY' })
   })
 
   it('shows card-specific amounts and excludes repayments and transactions outside the period', () => {
@@ -73,7 +76,7 @@ describe('credit card spending drilldown', () => {
   Liabilities:CreditCard:CMB:Visa -150 CNY
 `)
     const overview = renderToStaticMarkup(<OverviewPage ledger={mixed} month="2026-11" currency="CNY" cycle={cycle} today="2026-12-01" onNavigate={() => {}} />)
-    const cards = overview.slice(overview.indexOf('credit-spending-panel'), overview.indexOf('dashboard-grid'))
+    const cards = overview.slice(overview.indexOf('class="payment-spending"'), overview.indexOf('dashboard-grid'))
     expect(cards).toContain('金额待确认')
     expect(cards).not.toContain('150.00')
     const route = parseRoute('#transactions?month=2026-11&account=Liabilities%3ACreditCard%3ACMB%3AVisa&card_currency=CNY')

@@ -61,7 +61,7 @@ export default function App() {
         const explicitMonth = new URLSearchParams(window.location.hash.split('?')[1]).get('month')
         // Loading the private snapshot must not overwrite a linked report period.
         if (!explicitMonth || !/^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(explicitMonth)) navigate({ month: defaultMonth })
-      } else navigate({ month: defaultMonth, account: '', search: '', kind: 'all', allTime: false, date: undefined, section: undefined, cardCurrency: undefined })
+      } else navigate({ month: defaultMonth, account: '', search: '', kind: 'all', allTime: false, date: undefined, section: undefined, cardCurrency: undefined, paymentCurrency: undefined })
     }
     setSourceFileIndex(0)
   }, [sourceController.status?.snapshotId, sourceController.real])
@@ -93,7 +93,7 @@ export default function App() {
     }
   }, [sourceOpen])
 
-  const go = (page: Page, filters = {}) => navigate({ page, kind: 'all', search: '', account: '', allTime: false, date: undefined, section: undefined, cardCurrency: undefined, ...filters })
+  const go = (page: Page, filters = {}) => navigate({ page, kind: 'all', search: '', account: '', allTime: false, date: undefined, section: undefined, cardCurrency: undefined, paymentCurrency: undefined, ...filters })
   const pageContent = sourceController.needsConnection && route.page !== 'settings'
     ? cloudMode
       ? <EmptyState title={sourceController.initialLoading ? '正在读取账本' : '账本暂不可用'} action={!sourceController.initialLoading && <button className="button" onClick={() => void sourceController.refreshStatus()}>重试</button>} />
