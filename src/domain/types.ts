@@ -92,6 +92,15 @@ export interface Activity extends LedgerTransaction {
   toAccount?: string;
   amounts?: ActivityAmount[];
   amountBasis?: 'units' | 'weight';
+  /** A transaction can be shown even when its card-specific amount is ambiguous. */
+  amountUnavailable?: boolean;
+}
+
+export interface CreditCardSpending {
+  account: string;
+  currency: string;
+  amount: string | null;
+  transactionCount: number;
 }
 
 export interface CategoryTotal {
