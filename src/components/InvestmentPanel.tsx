@@ -31,6 +31,5 @@ export default function InvestmentPanel({ summary, ledger, currency, emptyAccoun
       </details>)}
       {emptyAccounts.map(account => <button className="account-row" key={account.name} onClick={() => onAccount(account.name)}><span className="account-avatar investment-avatar"><TrendingUp size={21} strokeWidth={1.6} /></span><span className="account-info"><strong>{labels.get(account.name) ?? account.name}</strong><small>暂无记录</small></span><span className="account-balance">—</span><ChevronRight size={15} className="account-row-arrow" /></button>)}
     </div> : <EmptyState title="暂无投资持仓" />}
-    <details className="disclosure"><summary>估值口径</summary><div className="disclosure-content"><p>持仓按账本最新报价估值，人民币记账的投资按账面余额展示。</p><p>净资产 = 现金与存款 + 其他资产 + 投资市值 − 待还款 + 溢缴款。</p></div></details>
   </section>
 }
