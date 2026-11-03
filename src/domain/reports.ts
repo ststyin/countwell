@@ -1,5 +1,7 @@
 import Decimal from 'decimal.js';
-import type { AccountBalance, AccountKind, AccountReport, Activity, ActivityAmount, InvestmentPosition, Ledger, LedgerTransaction, Overview, TransactionQuery, TransactionKind } from './types';
+import type { AccountBalance, AccountKind, AccountReport, Activity, ActivityAmount, BillingCycle, InvestmentPosition, Ledger, LedgerTransaction, Overview, TransactionQuery, TransactionKind } from './types';
+import { reportPeriod } from './period';
+export { monthBounds } from './period';
 
 const defaultRoots = { assets: 'Assets', liabilities: 'Liabilities', income: 'Income', expenses: 'Expenses', equity: 'Equity' };
 const text = (value: Decimal) => value.isZero() ? '0' : value.toFixed();
@@ -26,14 +28,6 @@ function arithmetic(ledger: Ledger) {
   return { D, sum: (values: string[]) => values.reduce((total, value) => total.plus(value), new D(0)) };
 }
 
-export function monthBounds(month: string): { start: string; end: string; days: number; previous: string } {
-  if (typeof month !== 'string' || !/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('月份必须为 YYYY-MM');
-  const [year, number] = month.split('-').map(Number);
-  if (year === 0) throw new Error('年份必须大于零');
-  const days = number === 2 ? (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28) : [4, 6, 9, 11].includes(number) ? 30 : 31;
-  const previous = number === 1 ? `${String(year - 1).padStart(4, '0')}-12` : `${String(year).padStart(4, '0')}-${String(number - 1).padStart(2, '0')}`;
-  return { start: `${month}-01`, end: `${month}-${days}`, days, previous };
-}
 
 function costUnits(ledger: Ledger, end = '9999-12-31'): Set<string> {
   return new Set(ledger.transactions.filter(transaction => transaction.date <= end).flatMap(transaction => transaction.postings.filter(posting => posting.cost).map(posting => posting.currency)));
@@ -53,8 +47,8 @@ function moneyCurrencies(ledger: Ledger): string[] {
   return [...currencies].sort((a, b) => a === 'CNY' ? -1 : b === 'CNY' ? 1 : a.localeCompare(b));
 }
 
-function flowForMonth(ledger: Ledger, month: string, currency: string, D: typeof Decimal) {
-  const { start, end } = monthBounds(month);
+function flowForPeriod(ledger: Ledger, month: string, currency: string, D: typeof Decimal, cycle?: BillingCycle) {
+  const { start, end } = reportPeriod(month, cycle);
   const transactions = ledger.transactions.filter(transaction => transaction.date >= start && transaction.date <= end);
   const goods = costUnits(ledger, end);
   let income = new D(0), expense = new D(0), supported = true;
@@ -71,13 +65,13 @@ function flowForMonth(ledger: Ledger, month: string, currency: string, D: typeof
 }
 
 /** Only a single currency is aggregated, and unsupported flows fail closed. */
-export function getOverview(ledger: Ledger, month: string, currency = 'CNY'): Overview {
+export function getOverview(ledger: Ledger, month: string, currency = 'CNY', cycle?: BillingCycle): Overview {
   const { D } = arithmetic(ledger);
-  const { days, previous } = monthBounds(month);
-  const current = flowForMonth(ledger, month, currency, D);
-  const before = previous.startsWith('0000') ? { income: new D(0), expense: new D(0), supported: true } : flowForMonth(ledger, previous, currency, D);
-  const visibleTransactions = getTransactions(ledger, { month, currency });
-  const daily = new Map(Array.from({ length: days }, (_, index) => [`${month}-${String(index + 1).padStart(2, '0')}`, new D(0)]));
+  const { dates, previous } = reportPeriod(month, cycle);
+  const current = flowForPeriod(ledger, month, currency, D, cycle);
+  const before = previous.startsWith('0000') ? { income: new D(0), expense: new D(0), supported: true } : flowForPeriod(ledger, previous, currency, D, cycle);
+  const visibleTransactions = getTransactions(ledger, { month, currency, cycle });
+  const daily = new Map(dates.map(date => [date, new D(0)]));
   const expenses = new Map<string, Decimal>(), incomes = new Map<string, Decimal>();
   if (current.supported) for (const transaction of current.transactions) for (const posting of transaction.postings) {
     if (posting.currency !== currency) continue;
@@ -91,7 +85,7 @@ export function getOverview(ledger: Ledger, month: string, currency = 'CNY'): Ov
   const change = (now: Decimal, prior: Decimal) => !current.supported || !before.supported || prior.isZero() ? null : now.minus(prior).div(prior.abs()).times(100).toNumber();
   return {
     month, currency, currencies: moneyCurrencies(ledger), flowSupported: current.supported, previousFlowSupported: before.supported,
-    warnings: current.supported ? [] : ['本月收支包含成本、价格或商品数量，暂不生成收支和分类合计；完整交易与账户余额仍可查看。'],
+    warnings: current.supported ? [] : [cycle?.mode === 'custom' ? '本期收支包含成本、价格或商品数量，暂不生成收支和分类合计；完整交易与账户余额仍可查看。' : '本月收支包含成本、价格或商品数量，暂不生成收支和分类合计；完整交易与账户余额仍可查看。'],
     income: current.supported ? text(current.income) : '0', expense: current.supported ? text(current.expense) : '0', surplus: current.supported ? text(current.income.minus(current.expense)) : '0',
     previousIncome: before.supported ? text(before.income) : '0', previousExpense: before.supported ? text(before.expense) : '0', previousSurplus: before.supported ? text(before.income.minus(before.expense)) : '0',
     incomeChange: change(current.income, before.income), expenseChange: change(current.expense, before.expense),
@@ -164,7 +158,7 @@ function activity(ledger: Ledger, transaction: LedgerTransaction, amounts: Activ
 
 export function getTransactions(ledger: Ledger, query: TransactionQuery): Activity[] {
   const { D } = arithmetic(ledger);
-  const { start, end } = monthBounds(query.month);
+  const { start, end } = query.month === undefined ? { start: '0001-01-01', end: '9999-12-31' } : reportPeriod(query.month, query.cycle);
   const search = query.search?.toLowerCase() ?? '';
   return ledger.transactions.filter(transaction => transaction.date >= start && transaction.date <= end)
     .map(transaction => ({ transaction, amounts: activityAmounts(ledger, transaction, D) }))
@@ -177,9 +171,9 @@ export function getTransactions(ledger: Ledger, query: TransactionQuery): Activi
 }
 
 /** Values are independently reported for each currency, with no implicit FX. */
-export function getAccounts(ledger: Ledger, month: string, currency = 'CNY'): AccountReport {
+export function getAccounts(ledger: Ledger, month?: string, currency = 'CNY', cycle?: BillingCycle): AccountReport {
   const { D, sum } = arithmetic(ledger);
-  const { start, end } = monthBounds(month);
+  const { start, end } = month === undefined ? { start: '0001-01-01', end: '9999-12-31' } : reportPeriod(month, cycle);
   const goods = costUnits(ledger, end);
   const operating = new Set(ledger.operatingCurrencies ?? []);
   const investmentUnits = new Set([...goods].filter(unit => !operating.has(unit)));
@@ -233,5 +227,5 @@ export function getAccounts(ledger: Ledger, month: string, currency = 'CNY'): Ac
   const overpayments = sum(selected.filter(account => account.kind === 'liability').map(account => D.max(account.balance, 0).toFixed()));
   const investments = selectedPositions.some(position => position.marketValue === null) ? null : sum(selectedPositions.map(position => position.marketValue!));
   const signedLiabilities = sum(selected.filter(account => account.kind === 'liability').map(account => account.balance));
-  return { month, currency, currencies: moneyCurrencies(ledger), cash: text(cash), otherAssets: text(otherAssets), investments: investments === null ? null : text(investments), liabilities: text(liabilities), overpayments: text(overpayments), netWorth: investments === null ? null : text(cash.plus(otherAssets).plus(investments).plus(signedLiabilities)), previousCash: text(previousCash), cashChange: text(cash.minus(previousCash)), accounts, positions, warnings: investments === null ? ['部分持仓缺少可用的同币种直接报价，暂不展示完整投资合计与净资产。'] : [] };
+  return { month: month ?? '', currency, currencies: moneyCurrencies(ledger), cash: text(cash), otherAssets: text(otherAssets), investments: investments === null ? null : text(investments), liabilities: text(liabilities), overpayments: text(overpayments), netWorth: investments === null ? null : text(cash.plus(otherAssets).plus(investments).plus(signedLiabilities)), previousCash: text(previousCash), cashChange: text(cash.minus(previousCash)), accounts, positions, warnings: investments === null ? ['部分持仓缺少可用的同币种直接报价，暂不展示完整投资合计与净资产。'] : [] };
 }

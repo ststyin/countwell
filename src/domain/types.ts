@@ -2,6 +2,22 @@
 export type AccountKind = 'asset' | 'liability' | 'income' | 'expense' | 'equity';
 export type TransactionKind = 'income' | 'expense' | 'refund' | 'transfer' | 'investment';
 
+/** Custom cycles are named for the month containing their ending anchor. */
+export interface BillingCycle {
+  mode: 'calendar' | 'custom';
+  day: number;
+  boundary: 'start' | 'end';
+}
+
+/** Both date endpoints are inclusive; adjacent periods never share a date. */
+export interface ReportingPeriod {
+  start: string;
+  end: string;
+  days: number;
+  previous: string;
+  dates: string[];
+}
+
 export interface LedgerAccount {
   name: string;
   label: string;
@@ -156,7 +172,9 @@ export interface AccountReport {
 }
 
 export interface TransactionQuery {
-  month: string;
+  /** Omit month to inspect the full account history. */
+  month?: string;
+  cycle?: BillingCycle;
   search?: string;
   kind?: TransactionKind | 'all';
   account?: string;
