@@ -2,6 +2,19 @@ import type { BillingCycle, ReportingPeriod } from './types';
 
 export const DEFAULT_BILLING_CYCLE: BillingCycle = { mode: 'calendar', day: 1, boundary: 'start' };
 
+/** The first day selects calendar months; every other day starts a continuous cycle. */
+export function billingCycleForStartDay(day: number): BillingCycle {
+  if (!Number.isInteger(day) || day < 1 || day > 31) throw new Error('账单周期设置无效');
+  return day === 1 ? { ...DEFAULT_BILLING_CYCLE } : { mode: 'custom', day, boundary: 'start' };
+}
+
+/** Convert previously saved end-day and independent-range preferences to a start day. */
+export function normalizeBillingCycle(cycle: BillingCycle): BillingCycle {
+  if (cycle.mode === 'calendar') return { ...DEFAULT_BILLING_CYCLE };
+  const startDay = cycle.mode === 'range' ? cycle.startDay! : cycle.boundary === 'end' ? (cycle.day === 31 ? 1 : cycle.day + 1) : cycle.day;
+  return billingCycleForStartDay(startDay);
+}
+
 export function monthBounds(month: string): { start: string; end: string; days: number; previous: string } {
   if (typeof month !== 'string' || !/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('月份必须为 YYYY-MM');
   const [year, number] = month.split('-').map(Number);

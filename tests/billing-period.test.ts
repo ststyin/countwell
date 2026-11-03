@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 import { billingMonthForDate, getAccounts, getOverview, getTransactions, monthBounds, parseDemoLedger, reportPeriod } from '../src/domain';
+import { billingCycleForStartDay, normalizeBillingCycle } from '../src/domain/period';
 import type { BillingCycle } from '../src/domain';
 
 const custom = (day: number, boundary: BillingCycle['boundary'] = 'start'): BillingCycle => ({ mode: 'custom', day, boundary });
@@ -17,6 +18,15 @@ const preamble = `
 const fixture = (body: string) => parseDemoLedger(preamble + body);
 
 describe('recurring reporting periods', () => {
+  it('maps a 25th closing day to the 26th start without changing the selected dates', () => {
+    const legacy = custom(25, 'end');
+    const migrated = normalizeBillingCycle(legacy);
+    expect(migrated).toEqual(billingCycleForStartDay(26));
+    for (const month of ['2023-02', '2024-02', '2024-03', '2026-11', '2027-01']) {
+      expect(reportPeriod(month, migrated)).toEqual(reportPeriod(month, legacy));
+    }
+    expect(billingCycleForStartDay(1)).toEqual({ mode: 'calendar', day: 1, boundary: 'start' });
+  });
   it('supports independent inclusive start and end days, including short months and overlapping or skipped dates', () => {
     const range = (startDay: number, endDay: number): BillingCycle => ({ mode: 'range', day: 1, boundary: 'start', startDay, endDay });
     expect(reportPeriod('2026-11', range(20, 25))).toMatchObject({ start: '2026-10-20', end: '2026-11-25' });

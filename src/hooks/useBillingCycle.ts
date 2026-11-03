@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { DEFAULT_BILLING_CYCLE } from '../domain/period'
+import { DEFAULT_BILLING_CYCLE, normalizeBillingCycle } from '../domain/period'
 import type { BillingCycle } from '../domain/types'
 
 const storageKey = 'countwell.billingCycle'
@@ -15,12 +15,6 @@ function validCycle(value: unknown): value is BillingCycle {
     && (cycle.mode !== 'range' || (Number.isInteger(cycle.startDay) && Number(cycle.startDay) >= 1 && Number(cycle.startDay) <= 31 && Number.isInteger(cycle.endDay) && Number(cycle.endDay) >= 1 && Number(cycle.endDay) <= 31))
 }
 
-function normalize(cycle: BillingCycle): BillingCycle {
-  return cycle.mode === 'calendar' ? { ...DEFAULT_BILLING_CYCLE }
-    : cycle.mode === 'range' ? { mode: 'range', day: cycle.day, boundary: cycle.boundary, startDay: cycle.startDay, endDay: cycle.endDay }
-    : { mode: 'custom', day: cycle.day, boundary: cycle.boundary }
-}
-
 function savedCycle(unavailableFallback: BillingCycle = DEFAULT_BILLING_CYCLE): BillingCycle {
   if (browser) {
     let saved: string | null
@@ -28,7 +22,7 @@ function savedCycle(unavailableFallback: BillingCycle = DEFAULT_BILLING_CYCLE): 
     catch { return { ...unavailableFallback } }
     try {
       const value: unknown = JSON.parse(saved ?? 'null')
-      if (validCycle(value)) return normalize(value)
+      if (validCycle(value)) return normalizeBillingCycle(value)
     } catch { /* Malformed preferences use calendar months. */ }
   }
   return { ...DEFAULT_BILLING_CYCLE }
@@ -50,7 +44,7 @@ export function getBillingCycle(): BillingCycle { return state }
 
 export function setBillingCycle(cycle: BillingCycle) {
   if (!validCycle(cycle)) return
-  const next = normalize(cycle)
+  const next = normalizeBillingCycle(cycle)
   try { if (browser) window.localStorage.setItem(storageKey, JSON.stringify(next)) } catch { /* The choice still applies for this session. */ }
   update(next)
 }

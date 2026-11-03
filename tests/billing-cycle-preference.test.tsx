@@ -1,4 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
+import { Children, isValidElement } from 'react'
+import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import BillingCycleSettings from '../src/components/BillingCycleSettings'
 
@@ -44,35 +46,30 @@ describe('billing-cycle preference', () => {
     expect(preference.getBillingCycle().mode).toBe('calendar')
   })
 
-  it('restores either boundary mode after reload and only persists period preferences', async () => {
-    const browser = browserFixture()
-    for (const boundary of ['start', 'end'] as const) {
-      const preference = await import('../src/hooks/useBillingCycle')
-      preference.setBillingCycle({ mode: 'custom', day: 25, boundary, unexpected: 'private sentinel' } as Parameters<typeof preference.setBillingCycle>[0])
-      expect(JSON.parse(browser.values.get(key)!)).toEqual({ mode: 'custom', day: 25, boundary })
-      expect(browser.values.get(key)).not.toContain('sentinel')
-      vi.resetModules()
-      const restored = await import('../src/hooks/useBillingCycle')
-      expect(restored.getBillingCycle()).toEqual({ mode: 'custom', day: 25, boundary })
-    }
-  })
-
-  it('persists both independent days and rejects incomplete ranges', async () => {
+  it('stores a start day or calendar months and strips unrelated information', async () => {
     const browser = browserFixture()
     const preference = await import('../src/hooks/useBillingCycle')
-    const cycle = { mode: 'range', day: 1, boundary: 'start', startDay: 20, endDay: 25 } as const
-    preference.setBillingCycle(cycle)
-    expect(JSON.parse(browser.values.get(key)!)).toEqual(cycle)
-    preference.setBillingCycle({ ...cycle, endDay: 0 })
-    expect(preference.getBillingCycle()).toEqual(cycle)
+    preference.setBillingCycle({ mode: 'custom', day: 25, boundary: 'start', unexpected: 'private sentinel' } as Parameters<typeof preference.setBillingCycle>[0])
+    expect(JSON.parse(browser.values.get(key)!)).toEqual({ mode: 'custom', day: 25, boundary: 'start' })
+    expect(browser.values.get(key)).not.toContain('sentinel')
     vi.resetModules()
-    expect((await import('../src/hooks/useBillingCycle')).getBillingCycle()).toEqual(cycle)
-    const html = renderToStaticMarkup(<BillingCycleSettings month="2026-11" cycle={cycle} onChange={() => {}} />)
-    expect(html).toContain('上月开始日')
-    expect(html).toContain('本月结束日')
-    expect(html).toContain('2026-10-20')
-    expect(html).toContain('2026-11-25')
-    expect(html).toContain('相邻周期可能重叠')
+    const restored = await import('../src/hooks/useBillingCycle')
+    expect(restored.getBillingCycle()).toEqual({ mode: 'custom', day: 25, boundary: 'start' })
+    restored.setBillingCycle({ mode: 'custom', day: 1, boundary: 'start' })
+    expect(restored.getBillingCycle()).toEqual({ mode: 'calendar', day: 1, boundary: 'start' })
+  })
+
+  it('converts old end-day and independent-range preferences to a start day', async () => {
+    for (const [saved, expected] of [
+      [{ mode: 'custom', day: 25, boundary: 'end' }, { mode: 'custom', day: 26, boundary: 'start' }],
+      [{ mode: 'custom', day: 31, boundary: 'end' }, { mode: 'calendar', day: 1, boundary: 'start' }],
+      [{ mode: 'range', day: 1, boundary: 'start', startDay: 20, endDay: 25 }, { mode: 'custom', day: 20, boundary: 'start' }],
+    ] as const) {
+      vi.resetModules()
+      browserFixture({ saved: JSON.stringify(saved) })
+      const preference = await import('../src/hooks/useBillingCycle')
+      expect(preference.getBillingCycle()).toEqual(expected)
+    }
   })
 
   it('shares updates between active views and tabs and cleans up the storage listener', async () => {
@@ -82,10 +79,10 @@ describe('billing-cycle preference', () => {
     const first = preference.subscribeBillingCycle(firstListener)
     const second = preference.subscribeBillingCycle(secondListener)
     expect(browser.addEventListener).toHaveBeenCalledTimes(1)
-    preference.setBillingCycle({ mode: 'custom', day: 31, boundary: 'end' })
+    preference.setBillingCycle({ mode: 'custom', day: 31, boundary: 'start' })
     expect(firstListener).toHaveBeenCalledTimes(1)
     expect(secondListener).toHaveBeenCalledTimes(1)
-    preference.setBillingCycle({ mode: 'custom', day: 31, boundary: 'end' })
+    preference.setBillingCycle({ mode: 'custom', day: 31, boundary: 'start' })
     expect(firstListener).toHaveBeenCalledTimes(1)
     browser.values.set(key, JSON.stringify({ mode: 'custom', day: 10, boundary: 'start' }))
     browser.changed('other.preference')
@@ -107,9 +104,9 @@ describe('billing-cycle preference', () => {
   it('keeps a valid choice for this session when storage is blocked and ignores invalid changes', async () => {
     browserFixture({ blocked: true })
     const preference = await import('../src/hooks/useBillingCycle')
-    preference.setBillingCycle({ mode: 'custom', day: 25, boundary: 'end' })
+    preference.setBillingCycle({ mode: 'custom', day: 25, boundary: 'start' })
     const stop = preference.subscribeBillingCycle(vi.fn())
-    expect(preference.getBillingCycle()).toEqual({ mode: 'custom', day: 25, boundary: 'end' })
+    expect(preference.getBillingCycle()).toEqual({ mode: 'custom', day: 25, boundary: 'start' })
     stop()
     const current = preference.getBillingCycle()
     preference.setBillingCycle({ mode: 'custom', day: 99, boundary: 'end' })
@@ -118,14 +115,39 @@ describe('billing-cycle preference', () => {
     expect(preference.getBillingCycle()).toEqual({ mode: 'calendar', day: 1, boundary: 'start' })
   })
 
-  it('previews the dates actually included for both boundary choices', () => {
+  it('shows one start-day control with a calendar-month default and an accurate preview', () => {
+    const calendar = renderToStaticMarkup(<BillingCycleSettings month="2026-11" cycle={{ mode: 'calendar', day: 1, boundary: 'start' }} onChange={() => {}} />)
+    expect(calendar.match(/<select\b/g)).toHaveLength(1)
+    expect(calendar).toContain('1 日（自然月）')
+    expect(calendar).toContain('2026-11-01')
+    expect(calendar).toContain('2026-11-30')
     const start = renderToStaticMarkup(<BillingCycleSettings month="2026-11" cycle={{ mode: 'custom', day: 25, boundary: 'start' }} onChange={() => {}} />)
     expect(start).toContain('2026-10-25')
     expect(start).toContain('2026-11-24')
-    expect(start).toContain('25 日计入新一期')
-    const end = renderToStaticMarkup(<BillingCycleSettings month="2026-11" cycle={{ mode: 'custom', day: 25, boundary: 'end' }} onChange={() => {}} />)
-    expect(end).toContain('2026-10-26')
-    expect(end).toContain('2026-11-25')
-    expect(end).toContain('25 日计入本期')
+    expect(start).not.toContain('截止日')
+    expect(start).not.toContain('自定义起止日')
+    const shortMonth = renderToStaticMarkup(<BillingCycleSettings month="2024-03" cycle={{ mode: 'custom', day: 31, boundary: 'start' }} onChange={() => {}} />)
+    expect(shortMonth).toContain('2024-02-29')
+    expect(shortMonth).toContain('短月取月末')
+  })
+
+  it('selecting a day applies a custom cycle and selecting day one restores calendar months', () => {
+    const changed = vi.fn()
+    const tree = BillingCycleSettings({ month: '2026-11', cycle: { mode: 'calendar', day: 1, boundary: 'start' }, onChange: changed })
+    function selectIn(node: unknown): ReactElement<{ children?: unknown; onChange?: (event: unknown) => void }> | undefined {
+      if (!isValidElement<{ children?: unknown; onChange?: (event: unknown) => void }>(node)) return undefined
+      if (node.type === 'select') return node
+      for (const child of Children.toArray(node.props.children as never)) {
+        const match = selectIn(child)
+        if (match) return match
+      }
+      return undefined
+    }
+    const select = selectIn(tree)
+    expect(select).toBeDefined()
+    select!.props.onChange!({ target: { value: '25' } })
+    expect(changed).toHaveBeenLastCalledWith({ mode: 'custom', day: 25, boundary: 'start' })
+    select!.props.onChange!({ target: { value: '1' } })
+    expect(changed).toHaveBeenLastCalledWith({ mode: 'calendar', day: 1, boundary: 'start' })
   })
 })
