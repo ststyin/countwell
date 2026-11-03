@@ -85,7 +85,7 @@ export function getOverview(ledger: Ledger, month: string, currency = 'CNY', cyc
   const change = (now: Decimal, prior: Decimal) => !current.supported || !before.supported || prior.isZero() ? null : now.minus(prior).div(prior.abs()).times(100).toNumber();
   return {
     month, currency, currencies: moneyCurrencies(ledger), flowSupported: current.supported, previousFlowSupported: before.supported,
-    warnings: current.supported ? [] : [cycle?.mode === 'custom' ? '本期收支包含成本、价格或商品数量，暂不生成收支和分类合计；完整交易与账户余额仍可查看。' : '本月收支包含成本、价格或商品数量，暂不生成收支和分类合计；完整交易与账户余额仍可查看。'],
+    warnings: current.supported ? [] : [cycle && cycle.mode !== 'calendar' ? '本期收支包含成本、价格或商品数量，暂不生成收支和分类合计；完整交易与账户余额仍可查看。' : '本月收支包含成本、价格或商品数量，暂不生成收支和分类合计；完整交易与账户余额仍可查看。'],
     income: current.supported ? text(current.income) : '0', expense: current.supported ? text(current.expense) : '0', surplus: current.supported ? text(current.income.minus(current.expense)) : '0',
     previousIncome: before.supported ? text(before.income) : '0', previousExpense: before.supported ? text(before.expense) : '0', previousSurplus: before.supported ? text(before.income.minus(before.expense)) : '0',
     incomeChange: change(current.income, before.income), expenseChange: change(current.expense, before.expense),
