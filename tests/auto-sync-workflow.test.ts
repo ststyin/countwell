@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
+import { execFile } from 'node:child_process'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { promisify } from 'node:util'
 import { createAutoSyncWorkflow } from '../scripts/auto-sync-workflow'
 
 const options = { ledgerRepository: 'owner/books', ledgerBranch: 'master', appRepository: 'owner/countwell', appRef: 'a'.repeat(40), activate: true }
@@ -15,11 +20,63 @@ describe('private ledger automation', () => {
     expect(workflow.permissions).toEqual({ contents: 'read' })
   })
 
-  it('pins application code and official actions to immutable commits', () => {
+  it('supports an explicit application commit and pins official actions to immutable commits', () => {
     const steps = definition().jobs.publish.steps
     expect(steps[0].with.ref).toBe(options.appRef)
     expect(steps[0].with['persist-credentials']).toBe(false)
     for (const step of steps.filter((step: { uses?: string }) => step.uses)) expect(step.uses).toMatch(/^actions\/[a-z-]+@[a-f0-9]{40}$/)
+  })
+
+  it('follows main, records the tested commit and refuses publishing if main advanced during the build', () => {
+    const steps = parse(createAutoSyncWorkflow({ ...options, appRef: 'main' })).jobs.publish.steps
+    expect(steps[0].with.ref).toBe('refs/heads/main')
+    const version = steps.find((step: { id?: string }) => step.id === 'application')
+    expect(version.run).toContain('git rev-parse HEAD')
+    expect(version.run).toContain('"$GITHUB_OUTPUT"')
+    expect(version.run).toContain('"$GITHUB_STEP_SUMMARY"')
+    const guard = steps.find((step: { id?: string }) => step.id === 'current')
+    expect(guard.env.COUNTWELL_APP_REPOSITORY).toBe(options.appRepository)
+    expect(guard.env.COUNTWELL_APP_SHA).toBe('${{ steps.application.outputs.sha }}')
+    expect(guard.run).toContain('git/ref/heads/main')
+    expect(guard.run).toContain('[ "$app_head" != "$COUNTWELL_APP_SHA" ]')
+    expect(guard.run).toContain('exit 1')
+    expect(steps.indexOf(guard)).toBeLessThan(steps.findIndex((step: { id?: string }) => step.id === 'deploy'))
+  })
+
+  it('does not compare an explicitly pinned application version to main', () => {
+    const guard = definition().jobs.publish.steps.find((step: { id?: string }) => step.id === 'current')
+    expect(guard.env.COUNTWELL_APP_SHA).toBeUndefined()
+    expect(guard.run).not.toContain('git/ref/heads/main')
+  })
+
+  it('executes the publication guard against matching and changed application or ledger heads', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'countwell-main-guard-'))
+    const appSha = 'a'.repeat(40)
+    const ledgerSha = 'b'.repeat(40)
+    try {
+      await writeFile(join(directory, 'gh'), '#!/bin/bash\ncase "$2" in\n  */countwell/git/ref/heads/main) printf "%s\\n" "$FIXTURE_APP_HEAD" ;;\n  *) printf "%s\\n" "$FIXTURE_LEDGER_HEAD" ;;\nesac\n', { mode: 0o700 })
+      for (const scenario of [
+        { ref: 'main', appHead: appSha, ledgerHead: ledgerSha, output: 'publish=true\n' },
+        { ref: 'main', appHead: 'c'.repeat(40), ledgerHead: ledgerSha, output: '' },
+        { ref: 'main', appHead: appSha, ledgerHead: 'd'.repeat(40), output: 'publish=false\n' },
+        { ref: appSha, appHead: 'c'.repeat(40), ledgerHead: ledgerSha, output: 'publish=true\n' },
+      ]) {
+        const steps = parse(createAutoSyncWorkflow({ ...options, appRef: scenario.ref })).jobs.publish.steps
+        const guard = steps.find((step: { id?: string }) => step.id === 'current')
+        const output = join(directory, 'output')
+        await writeFile(output, '')
+        const execution = promisify(execFile)('bash', ['-e', '-o', 'pipefail', '-c', guard.run], {
+          env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, GITHUB_OUTPUT: output,
+            GITHUB_REPOSITORY: options.ledgerRepository, GITHUB_SHA: ledgerSha,
+            COUNTWELL_LEDGER_BRANCH: options.ledgerBranch, COUNTWELL_APP_REPOSITORY: options.appRepository,
+            COUNTWELL_APP_SHA: appSha, FIXTURE_APP_HEAD: scenario.appHead, FIXTURE_LEDGER_HEAD: scenario.ledgerHead },
+        })
+        if (scenario.ref === 'main' && scenario.appHead !== appSha) {
+          await expect(execution).rejects.toMatchObject({ code: 1, stdout: expect.stringContaining('Re-run this workflow') })
+        } else await execution
+        expect(await readFile(output, 'utf8')).toBe(scenario.output)
+      }
+    } finally { await rm(directory, { recursive: true, force: true }) }
   })
 
   it('keeps Cloudflare deployment credentials out of checkout, validation and builds', () => {
@@ -64,8 +121,10 @@ describe('private ledger automation', () => {
     expect(check.run).toContain('"$code" = "401"')
   })
 
-  it('rejects mutable application refs and expression injection in the repository or branch', () => {
-    expect(() => createAutoSyncWorkflow({ ...options, appRef: 'main' })).toThrow()
+  it('rejects arbitrary application refs and expression injection in the repository or branch', () => {
+    for (const appRef of ['develop', 'refs/heads/main', '${{ secrets.TOKEN }}', "main'; exit 0", '']) {
+      expect(() => createAutoSyncWorkflow({ ...options, appRef })).toThrow()
+    }
     expect(() => createAutoSyncWorkflow({ ...options, ledgerRepository: "owner/books' || true" })).toThrow()
     expect(() => createAutoSyncWorkflow({ ...options, ledgerBranch: "master' || true" })).toThrow()
   })

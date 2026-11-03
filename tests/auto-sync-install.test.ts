@@ -12,18 +12,18 @@ const workflowPath = '.github/workflows/countwell-sync.yml'
 const managedMarker = '# Managed by Countwell auto-sync.'
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))) })
 
-async function project(options: { noOwner?: boolean } = {}) {
+async function project(options: { noOwner?: boolean; noAppRef?: boolean; savedAppRef?: string } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'countwell-install-test-'))
   roots.push(root)
   const directory = join(root, '.countwell/cloud')
   await mkdir(directory, { recursive: true })
   await writeFile(join(directory, 'source.json'), JSON.stringify({ repository: 'fictional/ledger', entryPath: 'books/main.beancount', ref: '8'.repeat(40), ...(!options.noOwner ? { allowedUserId: '42' } : {}) }))
-  await writeFile(join(directory, 'auto-sync.json'), JSON.stringify({ accountId, appRef }))
+  await writeFile(join(directory, 'auto-sync.json'), JSON.stringify({ accountId, ...(!options.noAppRef ? { appRef: options.savedAppRef ?? appRef } : {}) }))
   await writeFile(join(directory, 'deployment.json'), JSON.stringify({ url: siteUrl }))
   return root
 }
 
-function runner(options: { private?: boolean; ownerId?: number; ownerType?: string; enabled?: string; secret?: boolean; existingText?: string; putFails?: boolean; appMissing?: boolean; inspectDenied?: boolean; variableGetError?: string } = {}) {
+function runner(options: { private?: boolean; ownerId?: number; ownerType?: string; enabled?: string; secret?: boolean; existingText?: string; putFails?: boolean; appMissing?: boolean; appSha?: unknown; inspectDenied?: boolean; variableGetError?: string } = {}) {
   const calls: { command: string; args: string[] }[] = []
   const variables = new Map<string, string>()
   if (options.enabled !== undefined) variables.set('COUNTWELL_AUTO_SYNC_ENABLED', options.enabled)
@@ -53,7 +53,7 @@ function runner(options: { private?: boolean; ownerId?: number; ownerType?: stri
       if (endpoint === 'repos/fictional/ledger') return { stdout: JSON.stringify({ private: options.private ?? true, full_name: 'fictional/ledger', default_branch: 'main', owner: { type: options.ownerType ?? 'User', id: options.ownerId ?? 42 } }) }
       if (endpoint.startsWith('repos/ststyin/countwell/commits/')) {
         if (options.appMissing) throw missing()
-        return { stdout: JSON.stringify({ sha: appRef }) }
+        return { stdout: JSON.stringify({ sha: options.appSha === undefined ? appRef : options.appSha }) }
       }
       if (endpoint.startsWith('repos/fictional/ledger/git/ref/heads/')) return { stdout: '1'.repeat(40) }
       if (endpoint.startsWith(`repos/fictional/ledger/contents/${workflowPath}`)) {
@@ -110,6 +110,35 @@ describe('managed private ledger auto-sync installation', () => {
     }
   })
 
+  it('defaults a new installation to main and preserves the branch for future runs', async () => {
+    const root = await project({ noAppRef: true })
+    const commands = runner()
+    const result = await installAutoSync({}, { projectDirectory: root, runCommand: commands.execute })
+    expect(result.appRef).toBe('main')
+    expect(commands.calls.some(call => call.args.includes('repos/ststyin/countwell/commits/main'))).toBe(true)
+    const metadata = JSON.parse(await readFile(join(root, '.countwell/cloud/auto-sync.json'), 'utf8'))
+    expect(metadata.appRef).toBe('main')
+    await installAutoSync({}, { projectDirectory: root, runCommand: commands.execute })
+    expect(commands.puts).toHaveLength(1)
+  })
+
+  it('allows switching a pinned installation to main without replacing main with a resolved SHA', async () => {
+    const root = await project()
+    const commands = runner({ appSha: '5'.repeat(40) })
+    const result = await installAutoSync({ appRef: 'main' }, { projectDirectory: root, runCommand: commands.execute })
+    expect(result.appRef).toBe('main')
+    expect(JSON.parse(await readFile(join(root, '.countwell/cloud/auto-sync.json'), 'utf8')).appRef).toBe('main')
+  })
+
+  it('refuses malformed remote main revisions before making any repository changes', async () => {
+    for (const appSha of ['main', 'short', null, 123]) {
+      const root = await project({ savedAppRef: 'main' })
+      const commands = runner({ appSha })
+      await expect(installAutoSync({}, { projectDirectory: root, runCommand: commands.execute })).rejects.toThrow('先推送应用代码')
+      expect(mutations(commands.calls)).toHaveLength(0)
+    }
+  })
+
   it('accepts the CLI exact missing-variable diagnostic but refuses authentication and unrelated failures', async () => {
     const root = await project()
     const missing = runner({ variableGetError: 'variable COUNTWELL_AUTO_SYNC_ENABLED was not found\n' })
@@ -135,7 +164,8 @@ describe('managed private ledger auto-sync installation', () => {
     await expect(installAutoSync({}, { projectDirectory: noOwner, runCommand: missingOwner.execute })).rejects.toThrow('固定的 GitHub 账号 ID')
     expect(missingOwner.calls).toHaveLength(0)
     for (const options of [
-      { repository: '--help/ledger' }, { entryPath: '../secret' }, { appRef: 'main' }, { accountId: 'wrong' },
+      { repository: '--help/ledger' }, { entryPath: '../secret' }, { appRef: 'develop' }, { appRef: 'refs/heads/main' },
+      { appRef: "main' || true" }, { appRef: '' }, { appRef: 'main\n' }, { appRef: 'A'.repeat(39) }, { accountId: 'wrong' },
       { siteUrl: 'https://fixture.example.workers.dev/path' }, { siteUrl: 'https://fixture.example.workers.dev/?secret=value' },
       { siteUrl: 'https://user:password@fixture.example.workers.dev' }, { siteUrl: 'http://fixture.example.workers.dev' },
     ]) {

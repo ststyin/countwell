@@ -103,9 +103,9 @@ export async function installAutoSync(options: AutoSyncInstallOptions = {}, depe
     allowedUserId: savedSource.allowedUserId,
   })
   const accountId = options.accountId ?? saved?.accountId
-  const appRefValue = options.appRef ?? saved?.appRef
+  const appRefValue = options.appRef ?? saved?.appRef ?? 'main'
   if (typeof accountId !== 'string' || !/^[a-f0-9]{32}$/i.test(accountId)) throw new InstallationError('Cloudflare Account ID 必须是 32 位十六进制字符串。')
-  if (typeof appRefValue !== 'string' || !/^[a-f0-9]{40}$/i.test(appRefValue)) throw new InstallationError('Countwell 版本必须指定完整的 40 位 Git 提交 SHA。')
+  if (typeof appRefValue !== 'string' || (appRefValue !== 'main' && !/^[a-f0-9]{40}$/i.test(appRefValue))) throw new InstallationError('Countwell 版本必须是 main 或完整的 40 位 Git 提交 SHA。')
   const appRef = appRefValue.toLowerCase()
   const siteUrl = siteOrigin(options.siteUrl ?? saved?.siteUrl ?? deployment?.url)
   const activated = options.activate === true
@@ -122,8 +122,9 @@ export async function installAutoSync(options: AutoSyncInstallOptions = {}, depe
   if (!branch) throw new InstallationError('无法确认账本默认分支，请提供 --branch。')
   try {
     const commit = JSON.parse((await run('gh', ['api', '--hostname', 'github.com', `repos/${APP_REPOSITORY}/commits/${appRef}`, '--jq', '{sha}'], project)).stdout) as { sha?: string }
-    if (commit.sha?.toLowerCase() !== appRef) throw new Error('Commit mismatch')
-  } catch { throw new InstallationError('指定的 Countwell 提交在远端不可读取，请先推送应用代码。') }
+    if (typeof commit.sha !== 'string' || !/^[a-f0-9]{40}$/i.test(commit.sha)
+        || (appRef !== 'main' && commit.sha.toLowerCase() !== appRef)) throw new Error('Commit mismatch')
+  } catch { throw new InstallationError('指定的 Countwell 版本在远端不可读取，请先推送应用代码。') }
   try {
     await run('gh', ['api', '--hostname', 'github.com', `repos/${source.repository}/git/ref/heads/${branch}`, '--jq', '.object.sha'], project)
   } catch { throw new InstallationError('账本分支不存在或无法读取，未修改工作流。') }
@@ -204,8 +205,8 @@ export async function installAutoSync(options: AutoSyncInstallOptions = {}, depe
 async function main() {
   const { values } = parseArgs({ options: { repository: { type: 'string' }, entry: { type: 'string' }, branch: { type: 'string' }, 'account-id': { type: 'string' }, 'app-ref': { type: 'string' }, 'site-url': { type: 'string' }, activate: { type: 'boolean' }, help: { type: 'boolean' } }, strict: true, allowPositionals: false })
   if (values.help) {
-    console.log('用法：npm run cloud:auto:install -- --app-ref <完整提交SHA> [--repository owner/repo] [--entry main.beancount] [--branch master] [--account-id ID] [--site-url URL] [--activate]')
-    console.log('默认只安装手动验证工作流；--activate 检查 Secret 名称后启用提交自动发布。')
+    console.log('用法：npm run cloud:auto:install -- [--app-ref main|完整提交SHA] [--repository owner/repo] [--entry main.beancount] [--branch master] [--account-id ID] [--site-url URL] [--activate]')
+    console.log('首次安装默认跟随 main，后续沿用已保存的版本设置。默认只安装手动验证工作流；--activate 检查 Secret 名称后启用提交自动发布。')
     return
   }
   const result = await installAutoSync({ repository: values.repository, entryPath: values.entry, branch: values.branch, accountId: values['account-id'], appRef: values['app-ref'], siteUrl: values['site-url'], activate: values.activate })

@@ -36,10 +36,10 @@ Worker 需要三个 Secret：
 
 自动工作流安装在账本私有仓库中，监听默认分支提交。GitHub 托管环境使用官方引擎完整校验、生成私有快照并构建界面，成功后更新已有私有 Worker。电脑无需开机。
 
-首次安装时固定一个已经推送和验证的 Countwell 完整提交 SHA：
+首次安装默认跟随 Countwell 的 `main` 分支：
 
 ```sh
-npm run cloud:auto:install -- --app-ref <Countwell完整提交SHA> --account-id <Cloudflare账号ID>
+npm run cloud:auto:install -- --app-ref main --account-id <Cloudflare账号ID>
 ```
 
 安装器沿用 `.countwell/cloud/source.json` 中的来源与固定账号 ID，仅添加 `.github/workflows/countwell-sync.yml`，不修改账本原文或其他工作流。首次只开放手动验证；在 Actions 的 Run workflow 中选择 `validate_only=true` 可以先验证读取、校验和构建。
@@ -64,9 +64,17 @@ npm run cloud:auto:install -- --activate
 
 启用会添加默认分支的 `push` 触发；之后提交账本即可更新网站。也支持手动 Run workflow。校验失败时不会执行发布，线上继续使用此前快照；生产任务串行运行，发布前再次检查分支 HEAD，过期任务不会覆盖新版本。
 
-工作流只申请 GitHub `contents: read`。GitHub 临时 Token 只用于私库读取和版本检查，Cloudflare Token 只提供给发布步骤。依赖缓存只包含 npm／pip，不缓存或上传账本工作目录。官方 Actions 和应用代码均固定为完整提交 SHA。
+工作流只申请 GitHub `contents: read`。GitHub 临时 Token 只用于私库读取和版本检查，Cloudflare Token 只提供给发布步骤。依赖缓存只包含 npm／pip，不缓存或上传账本工作目录。官方 Actions 固定为完整提交 SHA；应用代码按配置跟随 `main` 或固定提交。
 
-若要更新应用代码版本，使用新的已验证 SHA 再运行 `cloud:auto:install -- --app-ref <新SHA> --activate`；单纯的账本更新无需改应用版本。
+跟随 `main` 时，每次账本发布开始都读取最新主分支，运行测试和构建，并在任务日志与摘要记录实际使用的应用提交。发布前再次核对 `main`；构建期间若出现新提交，会停止本次发布，重新运行任务即可使用更新后的代码。Countwell 自身的提交仍只触发应用检查，网站发布由账本提交或手动 Run workflow 触发。
+
+已有固定版本的安装可用以下命令切换；以后无需逐次修改版本号：
+
+```sh
+npm run cloud:auto:install -- --app-ref main --activate
+```
+
+若需固定应用版本，仍可使用 `--app-ref <完整提交SHA> --activate`。后续运行安装器时省略 `--app-ref` 会保留已保存的选择。
 
 ## 手动更新
 

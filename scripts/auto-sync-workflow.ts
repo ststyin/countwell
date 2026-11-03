@@ -15,11 +15,11 @@ const actions = {
   python: 'actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065',
 }
 
-/** Run inside the private ledger repo; only reviewed app code is checked out. */
+/** Run inside the private ledger repo using main or an explicitly pinned app commit. */
 export function createAutoSyncWorkflow(options: AutoSyncWorkflowOptions): string {
   const source = validateSourceConfig({ repository: options.ledgerRepository, entryPath: 'main.beancount', ref: options.ledgerBranch })
   const app = validateSourceConfig({ repository: options.appRepository, entryPath: 'main.beancount' })
-  if (!source.ref || !/^[a-f0-9]{40}$/.test(options.appRef)) throw new Error('工作流需要有效分支与完整应用提交 SHA。')
+  if (!source.ref || (options.appRef !== 'main' && !/^[a-f0-9]{40}$/.test(options.appRef))) throw new Error('工作流需要有效账本分支，应用版本必须是 main 或完整提交 SHA。')
   const events = {
     ...(options.activate ? { push: { branches: [source.ref] } } : {}),
     workflow_dispatch: {
@@ -40,7 +40,18 @@ export function createAutoSyncWorkflow(options: AutoSyncWorkflowOptions): string
         'timeout-minutes': 15,
         defaults: { run: { 'working-directory': 'countwell', shell: 'bash' } },
         steps: [
-          { name: 'Checkout reviewed application', uses: actions.checkout, with: { repository: app.repository, ref: options.appRef, path: 'countwell', 'persist-credentials': false } },
+          { name: 'Checkout Countwell application', uses: actions.checkout, with: { repository: app.repository, ref: options.appRef === 'main' ? 'refs/heads/main' : options.appRef, path: 'countwell', 'persist-credentials': false } },
+          {
+            name: 'Record application version', id: 'application',
+            env: { COUNTWELL_APP_REF: options.appRef },
+            run: [
+              'sha=$(git rev-parse HEAD)',
+              '[[ "$sha" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::Unable to identify the application commit."; exit 1; }',
+              'echo "sha=$sha" >> "$GITHUB_OUTPUT"',
+              'printf \'Countwell source: %s (%s)\\n\' "$COUNTWELL_APP_REF" "$sha"',
+              'printf \'Countwell application: `%s` at `%s`\\n\' "$COUNTWELL_APP_REF" "$sha" >> "$GITHUB_STEP_SUMMARY"',
+            ].join('\n'),
+          },
           { name: 'Set up Node.js', uses: actions.node, with: { 'node-version': 22, cache: 'npm', 'cache-dependency-path': 'countwell/package-lock.json' } },
           { name: 'Set up official Beancount runtime', uses: actions.python, with: { 'python-version': '3.12', cache: 'pip', 'cache-dependency-path': 'countwell/requirements.txt' } },
           { name: 'Install application dependencies', run: 'npm ci' },
@@ -70,8 +81,21 @@ export function createAutoSyncWorkflow(options: AutoSyncWorkflowOptions): string
           },
           {
             name: 'Reject stale commits', id: 'current',
-            env: { GH_TOKEN: '${{ github.token }}', COUNTWELL_LEDGER_BRANCH: source.ref },
+            env: {
+              GH_TOKEN: '${{ github.token }}', COUNTWELL_LEDGER_BRANCH: source.ref,
+              ...(options.appRef === 'main' ? {
+                COUNTWELL_APP_REPOSITORY: app.repository,
+                COUNTWELL_APP_SHA: '${{ steps.application.outputs.sha }}',
+              } : {}),
+            },
             run: [
+              ...(options.appRef === 'main' ? [
+                'app_head=$(gh api "repos/$COUNTWELL_APP_REPOSITORY/git/ref/heads/main" --jq .object.sha)',
+                'if [ "$app_head" != "$COUNTWELL_APP_SHA" ]; then',
+                '  echo "::error::Countwell main changed during this build. Re-run this workflow to use the latest code."',
+                '  exit 1',
+                'fi',
+              ] : []),
               'head=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$COUNTWELL_LEDGER_BRANCH" --jq .object.sha)',
               'if [ "$head" = "$GITHUB_SHA" ]; then',
               '  echo "publish=true" >> "$GITHUB_OUTPUT"',
