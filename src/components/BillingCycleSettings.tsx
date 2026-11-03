@@ -18,7 +18,7 @@ export default function BillingCycleSettings({ cycle, onChange, month }: {
       <label>统计方式<select aria-label="账单周期" value={mode} onChange={event => {
         const next = event.target.value
         if (next === 'calendar') onChange({ ...DEFAULT_BILLING_CYCLE })
-        else if (next === 'range') onChange({ mode: 'range', day: cycle.day, boundary: cycle.boundary, startDay: Number(period.start.slice(8)), endDay: Number(period.end.slice(8)) })
+        else if (next === 'range') onChange({ mode: 'range', day: cycle.day, boundary: cycle.boundary, startDay: cycle.mode === 'calendar' ? 25 : Number(period.start.slice(8)), endDay: cycle.mode === 'calendar' ? 24 : Number(period.end.slice(8)) })
         else if (next === 'start' || next === 'end') onChange({ mode: 'custom', day: cycle.mode === 'custom' ? cycle.day : 25, boundary: next })
       }}>
         <option value="calendar">自然月</option>
