@@ -20,7 +20,7 @@
   --shadow: 0 18px 65px #00000028;
   --radius: 18px;
   --glass-solid: #252a27;
-  --glass-tint: rgb(24 29 26 / 18%);
+  --glass-tint: rgb(24 29 26 / 14%);
   --glass-edge: rgb(255 255 255 / 18%);
   --glass-shine: rgb(255 255 255 / 9%);
   --glass-selected: rgb(223 194 138 / 13%);
@@ -56,7 +56,7 @@
   --danger: #ac5353;
   --shadow: 0 18px 65px #243b1610;
   --glass-solid: #f2f3ed;
-  --glass-tint: rgb(250 251 246 / 30%);
+  --glass-tint: rgb(250 251 246 / 12%);
   --glass-edge: rgb(255 255 255 / 85%);
   --glass-shine: rgb(255 255 255 / 36%);
   --glass-selected: rgb(141 106 45 / 11%);
@@ -433,25 +433,25 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
     position: fixed;
     z-index: 40;
     isolation: isolate;
-    left: max(12px, env(safe-area-inset-left, 0px));
-    right: max(12px, env(safe-area-inset-right, 0px));
-    bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    left: max(16px, env(safe-area-inset-left, 0px));
+    right: max(16px, env(safe-area-inset-right, 0px));
+    bottom: max(8px, calc(env(safe-area-inset-bottom, 0px) - 14px));
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    max-width: 560px;
-    min-height: 58px;
+    max-width: 500px;
+    min-height: 52px;
     margin: 0 auto;
     gap: 2px;
-    padding: 4px;
+    padding: 3px;
     border: 1px solid var(--glass-edge);
     border-radius: 999px;
     background: var(--glass-solid);
     box-shadow: 0 8px 24px rgb(0 0 0 / 12%), inset 0 1px 0 var(--glass-shine);
   }
-  .mobile-nav::before { content: ''; position: absolute; z-index: -1; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, var(--glass-shine), transparent 60%); opacity: .45; }
+  .mobile-nav::before { content: ''; position: absolute; z-index: -1; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(180deg, var(--glass-shine), transparent 60%); opacity: .22; }
   .mobile-nav::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: inset 0 1px 0 var(--glass-shine); }
-  .mobile-nav-item { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; min-height: 48px; border: 1px solid transparent; border-radius: 999px; color: var(--glass-label); font-size: 10px; font-weight: 500; line-height: 1.3; transition: color .18s ease, background-color .18s ease, box-shadow .18s ease; }
-  .mobile-nav-item svg { width: 19px; height: 19px; stroke-width: 1.7; }
+  .mobile-nav-item { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 0; min-height: 44px; border: 1px solid transparent; border-radius: 999px; color: var(--glass-label); font-size: 10px; font-weight: 500; line-height: 1.3; transition: color .18s ease, background-color .18s ease, box-shadow .18s ease; }
+  .mobile-nav-item svg { width: 18px; height: 18px; stroke-width: 1.7; }
   .mobile-nav-item.active, .mobile-nav-item[aria-current='page'] { color: var(--glass-active-text); border-color: color-mix(in srgb, var(--accent) 10%, transparent); background: var(--glass-selected); box-shadow: inset 0 1px 0 var(--glass-shine), 0 2px 6px rgb(0 0 0 / 4%); }
   .mobile-nav-item:focus-visible { outline-offset: -3px; }
   .notice { font-size: 11px; padding: 12px 13px; border-radius: 12px; }
@@ -721,7 +721,7 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
   @media (max-width: 760px) {
-    .mobile-nav { background: var(--glass-tint); -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%); }
+    .mobile-nav { background: var(--glass-tint); -webkit-backdrop-filter: blur(12px) saturate(150%); backdrop-filter: blur(12px) saturate(150%); }
   }
 }
 
