@@ -43,7 +43,9 @@ export default function App() {
   useEffect(() => {
     if (!sourceController.real) { sourceIdentity.current = ''; return }
     if (!sourceController.status?.source) return
-    const identity = JSON.stringify(sourceController.status.source)
+    const source = sourceController.status.source
+    // A cloud snapshot changes commit refs while the selected ledger stays the same.
+    const identity = JSON.stringify(cloudMode ? { type: source.type, repository: source.repository, entryPath: source.entryPath } : source)
     if (sourceIdentity.current !== identity) {
       sourceIdentity.current = identity
       navigate({ month: ledger.defaultMonth, account: '', search: '', kind: 'all' })
