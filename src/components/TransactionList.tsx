@@ -24,7 +24,7 @@ export default function TransactionList({ transactions }: { transactions: Activi
         <ChevronDown size={15} className="transaction-chevron" />
       </summary>
       <div className="transaction-details">
-        <div className="transaction-detail-header"><span>支付方式：{tx.payee.trim() || '未填写'}</span><span>{tx.flag === '!' ? '待核对' : tx.flag === '*' ? '已确认' : `交易标记：${tx.flag}`}</span></div>
+        <div className="transaction-detail-header"><span>{tx.payee.trim() || '未填写'}</span><span>{tx.flag === '!' ? '待核对' : tx.flag === '*' ? '已确认' : `交易标记：${tx.flag}`}</span></div>
         {tx.kind === 'transfer' && tx.fromAccount && <p className="transfer-description">{tx.fromAccount}<ArrowRight size={13} />{tx.toAccount}</p>}
         <div className="posting-header"><span>复式分录</span></div>
         <div className="posting-list">{tx.postings.map((posting, index) => <div className="posting-row" key={index}>
