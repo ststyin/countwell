@@ -16,7 +16,7 @@ describe('official financial snapshot presentation', () => {
       ] }],
     }
     const html = renderToStaticMarkup(<DisplayContext.Provider value={{ hidden: false, currency: 'CNY' }}><OverviewPage ledger={ledger} month="2026-10" currency="CNY" today="2026-10-01" onNavigate={() => {}} /></DisplayContext.Provider>)
-    const summary = html.slice(html.indexOf('class="flow-grid"'), html.indexOf('class="balance-strip"'))
+    const summary = html.slice(html.indexOf('class="flow-grid"'), html.indexOf('class="dashboard-grid"'))
     expect(summary.match(/>—</g)).toHaveLength(3)
     expect(summary).not.toContain('0.00')
     expect(html).toContain('本月收支暂不可汇总')

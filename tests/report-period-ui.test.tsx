@@ -33,12 +33,13 @@ const ledger = parseDemoLedger(`
 describe('report period presentation', () => {
   it('passes the selected cycle to totals, daily chart and recent transaction data', () => {
     const html = renderToStaticMarkup(<DisplayContext.Provider value={{ hidden: false, currency: 'CNY' }}><OverviewPage ledger={ledger} month="2026-11" currency="CNY" today="2026-10-25" cycle={{ mode: 'custom', day: 25, boundary: 'start' }} onNavigate={() => {}} /></DisplayContext.Provider>)
-    const totals = html.slice(html.indexOf('class="flow-grid"'), html.indexOf('class="balance-strip"'))
+    const totals = html.slice(html.indexOf('class="flow-grid"'), html.indexOf('class="dashboard-grid"'))
     expect(totals).toContain('本期支出')
     expect(totals).toContain('10.00')
     expect(totals).not.toContain('20.00')
     expect(html).toContain('Inside billing period')
     expect(html).not.toContain('Outside billing period')
+    expect(html).not.toContain('我的钱')
     expect(html).toContain('10.25')
     expect(html).toContain('11.24')
   })

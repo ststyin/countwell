@@ -148,15 +148,6 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 .change-pill.increase { color: var(--income); background: var(--income-soft); }
 .income-tone { color: var(--income); }
 .expense-tone { color: var(--expense); }
-.balance-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; align-items: center; gap: 18px; margin-top: 14px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-soft); }
-.balance-item { min-width: 0; }
-.balance-item + .balance-item { padding-left: 24px; border-left: 1px solid var(--line); }
-.balance-label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; margin-bottom: 6px; }
-.balance-label svg { width: 13px; height: 13px; }
-.balance-item > .money, .balance-item .balance-amount { display: block; color: var(--text); font-size: 22px; font-weight: 450; line-height: 1.25; }
-.balance-link { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; min-height: 44px; color: var(--muted); }
-.balance-link:hover { color: var(--accent); }
-.balance-link svg { width: 17px; height: 17px; }
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; margin-top: 18px; align-items: start; }
 .panel { min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
@@ -229,12 +220,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .unit-label { color: var(--muted); font-size: 11px; margin-left: 2px; }
 .footnote-divider { color: var(--muted); margin: 0 1px; }
 .change-pill:not(.positive) { background: var(--income-soft); color: var(--income); }
-.balance-strip { position: relative; grid-template-columns: minmax(115px, 1.1fr) minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1fr) 20px; gap: 16px; }
-.balance-strip-title { display: flex; align-items: center; gap: 10px; color: var(--text-secondary); font-size: 12px; line-height: 1.45; }
-.balance-icon { display: inline-grid; place-items: center; width: 35px; height: 35px; border-radius: 11px; color: var(--accent); background: var(--accent-soft); }
-.balance-date { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; white-space: nowrap; }
-.balance-strip .balance-item + .balance-item { padding-left: 18px; }
-.balance-strip .balance-item > .money { font-size: 20px; }
 .dashboard-grid { align-items: stretch; }
 .chart-meta { justify-content: flex-start; gap: 6px; margin: -5px 0 15px; font-size: 11px; }
 .chart-unit { margin-left: auto; }
@@ -318,18 +303,9 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 @keyframes drawer-in { from { transform: translateX(24px); opacity: .4; } to { transform: translateX(0); opacity: 1; } }
 
 @media (max-width: 1200px) and (min-width: 761px) {
-  .balance-strip { grid-template-columns: minmax(100px, 1fr) repeat(3, minmax(0, 1fr)) 14px; gap: 12px; padding: 19px; }
-  .balance-strip .balance-item + .balance-item { padding-left: 12px; }
-  .balance-strip .balance-item > .money { font-size: 18px; }
 }
 
 @media (max-width: 1020px) and (min-width: 761px) {
-  .balance-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 18px; gap: 18px 13px; }
-  .balance-strip-title { grid-column: 1 / -1; }
-  .balance-strip-title > span:last-child { display: flex; align-items: center; gap: 9px; }
-  .balance-date { margin-top: 0; }
-  .balance-link { position: absolute; top: 18px; right: 17px; min-height: 35px; }
-  .balance-strip .balance-item + .balance-item { padding-left: 14px; }
 }
 
 @media (max-width: 760px) {
@@ -339,16 +315,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .month-label { min-width: 76px; font-size: 11px; }
   .stat-icon { width: 21px; height: 21px; border-radius: 6px; }
   .unit-label { font-size: 11px; }
-  .balance-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
-  .balance-strip-title { grid-column: 1 / -1; padding-right: 30px; }
-  .balance-strip-title > span:last-child { display: flex; align-items: center; gap: 10px; }
-  .balance-date { margin-top: 0; font-size: 11px; }
-  .balance-icon { width: 30px; height: 30px; border-radius: 9px; }
-  .balance-strip > .balance-item:nth-child(2) { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 3px 0 13px; border-bottom: 1px solid var(--line); }
-  .balance-strip > .balance-item:nth-child(2) > .money { font-size: 25px; }
-  .balance-strip .balance-item + .balance-item { padding-left: 0; }
-  .balance-strip .balance-item > .money { font-size: 20px; }
-  .balance-link { position: absolute; right: 13px; top: 11px; grid-column: auto; padding: 0; margin: 0; min-width: 35px; min-height: 40px; }
   .page-footer { font-size: 11px; margin-top: 25px; gap: 3px; }
   .page-footer > span, .page-footer > button { min-height: 27px; }
   .transaction-row > summary { grid-template-columns: 32px minmax(0, 1fr) auto 12px; gap: 9px; min-height: 66px; padding: 11px 0; }
@@ -383,8 +349,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .transaction-subtitle { font-size: 11px; }
   .transaction-amount { font-size: 14px; }
   .transaction-kind { display: none; }
-  .balance-strip-title > span:last-child { display: block; }
-  .balance-date { margin-top: 2px; }
 }
 
 @media (max-width: 1200px) and (min-width: 761px) {
@@ -396,9 +360,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .flow-grid { grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)); gap: 12px; }
   .stat-amount { font-size: 25px; }
   .hero-amount { font-size: 36px; }
-  .balance-strip { gap: 12px; padding: 16px; }
-  .balance-item + .balance-item { padding-left: 16px; }
-  .balance-item > .money, .balance-item .balance-amount { font-size: 20px; }
   .dashboard-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; }
   .panel { padding: 17px; }
 }
@@ -409,9 +370,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .stat-card { min-height: 126px; }
   .hero-amount { font-size: 40px; }
   .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
-  .balance-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-  .balance-link { grid-column: 1 / -1; min-height: 20px; justify-content: flex-end; }
-  .balance-item > .money, .balance-item .balance-amount { font-size: 18px; }
 }
 
 @media (max-width: 760px) {
@@ -448,13 +406,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .stat-amount { font-size: clamp(20px, 5.3vw, 25px); margin-top: 12px; letter-spacing: -.6px; }
   .stat-footnote { font-size: 11px; gap: 4px; padding-top: 12px; }
   .change-pill { font-size: 11px; }
-  .balance-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px 14px; margin-top: 12px; padding: 14px; border-radius: 15px; }
-  .balance-item:first-child { grid-column: 1 / -1; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
-  .balance-item + .balance-item { padding-left: 0; border-left: 0; }
-  .balance-item > .money, .balance-item .balance-amount { font-size: 20px; }
-  .balance-item:first-child > .money, .balance-item:first-child .balance-amount { font-size: 25px; }
-  .balance-label { font-size: 11px; margin-bottom: 4px; }
-  .balance-link { grid-column: 1 / -1; justify-content: flex-end; min-height: 22px; padding-top: 2px; margin-top: -4px; font-size: 11px; }
   .dashboard-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; margin-top: 16px; }
   .panel { padding: 16px; border-radius: 16px; }
   .section-heading { gap: 9px; margin-bottom: 14px; }
@@ -506,7 +457,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .stat-card { padding: 13px 12px; min-height: 110px; }
   .stat-amount { font-size: clamp(18px, 5.4vw, 20px); }
   .panel { padding: 18px 16px; }
-  .balance-strip { padding-left: 16px; padding-right: 16px; }
   .category-row { gap: 9px; }
   .category-icon { width: 31px; height: 31px; border-radius: 9px; }
   .category-amount { min-width: 72px; font-size: 11px; }
@@ -817,8 +767,8 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .cloud-source-details a:hover { color: var(--accent); }
 .cloud-source-pending { color: var(--muted); font-size: 12px; }
 
-.drilldown-card, .balance-drilldown { text-align: left; cursor: pointer; }
-.drilldown-card:hover, .balance-drilldown:hover { color: var(--accent); }
+.drilldown-card { text-align: left; cursor: pointer; }
+.drilldown-card:hover { color: var(--accent); }
 .chart-day { cursor: pointer; }
 .chart-day:hover .chart-bar, .chart-day:focus-visible .chart-bar { opacity: 1; }
 .chart-day:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
