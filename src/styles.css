@@ -715,6 +715,16 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   }
 }
 
+/* iOS Home Screen web apps can clip a fixed, nested scroll container above the
+   screen edge. Let the document scroll there while the navigation stays fixed. */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 760px) and (display-mode: standalone) {
+    html { scroll-padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+    .app-shell { position: relative; inset: auto; min-height: 100vh; min-height: 100dvh; overflow: visible; }
+    .main-content, .app-shell.drawer-open .main-content { height: auto; overflow: visible; -webkit-overflow-scrolling: auto; }
+  }
+}
+
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   .mobile-nav { background: var(--glass-solid); border-color: var(--muted); -webkit-backdrop-filter: none; backdrop-filter: none; }
   .mobile-nav::before, .mobile-nav::after { display: none; }
