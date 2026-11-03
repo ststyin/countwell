@@ -74,6 +74,28 @@ describe('report period presentation', () => {
     expect(html).toContain('150.00')
   })
 
+  it('shows all debit accounts with distinguishable names, including accounts without transactions', () => {
+    const cards = parseDemoLedger(`
+2026-01-01 open Assets:Bank:CMB:Debit
+2026-01-01 open Assets:Bank:BOCOM:Debit
+2026-01-01 open Assets:Investment:Broker:Debit
+2026-01-01 open Equity:Opening
+2026-10-01 * "Opening"
+  Assets:Bank:CMB:Debit 100 CNY
+  Equity:Opening -100 CNY
+`)
+    const html = renderToStaticMarkup(<AccountsPage ledger={cards} currency="CNY" onAccount={() => {}} />)
+    const cash = html.slice(html.indexOf('class="panel account-list-panel"'), html.indexOf('class="panel liability-panel"'))
+    expect(cash).toContain('3 个账户')
+    expect(cash).toContain('CMB · Debit')
+    expect(cash).toContain('BOCOM · Debit')
+    expect(cash).toContain('Broker · Debit')
+    expect(cash).toContain('暂无记录')
+    const transactions = renderToStaticMarkup(<TransactionsPage ledger={cards} currency="CNY" route={{ page: 'transactions', month: '2026-10', kind: 'all', search: '', account: 'Assets:Bank:CMB:Debit', allTime: true }} onFilter={() => {}} />)
+    expect(transactions).toContain('CMB · Debit')
+    expect(transactions).toContain('BOCOM · Debit')
+  })
+
   it('retains all-time account drilldown in shareable routes and can switch back to a period', () => {
     const all = routeHref('transactions', '2026-11', { account: 'Assets:Bank', allTime: true })
     expect(parseRoute(all)).toMatchObject({ page: 'transactions', month: '2026-11', account: 'Assets:Bank', allTime: true })
