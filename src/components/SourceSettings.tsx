@@ -31,7 +31,7 @@ function CloudSourceSettings({ controller }: { controller: LedgerSourceControlle
     {status?.connected ? <dl className="cloud-source-details">
       <div><dt>GitHub</dt><dd>{status.source?.repository ? <a href={`https://github.com/${status.source.repository}`} target="_blank" rel="noreferrer">{status.source.repository}</a> : '已连接'}</dd></div>
       {status.loadedAt && <div><dt>同步</dt><dd><time dateTime={status.loadedAt}>{new Date(status.loadedAt).toLocaleString('zh-CN')}</time></dd></div>}
-    </dl> : <p className="cloud-source-pending" role="status">{controller.backendAvailable === null ? '正在读取账本…' : '账本暂不可用'}</p>}
+    </dl> : <p className="cloud-source-pending" role="status">{controller.initialLoading ? '正在读取账本…' : '账本暂不可用'}</p>}
     <div className="setting-actions"><button className="button" disabled={busy || loggingOut} onClick={() => void reload()}>{busy ? <LoaderCircle size={16} className="spin" /> : <RefreshCw size={16} />}刷新账本</button><button className="button" disabled={loggingOut} onClick={() => void logout()}><LogOut size={16} />{loggingOut ? '正在退出…' : '退出登录'}</button></div>
     {(error || logoutError) && <div className="source-error" role="alert">{logoutError || error?.message}</div>}
     {status?.connected && <details className="disclosure"><summary>同步详情</summary><div className="disclosure-content"><dl className="cloud-source-details"><div><dt>入口</dt><dd>{status.source?.entryPath}</dd></div><div><dt>账本</dt><dd>{status.fileCount} 个文件 · {status.transactionCount} 笔交易</dd></div>{status.revision && <div><dt>提交</dt><dd>{status.revision.slice(0, 12)}</dd></div>}</dl></div></details>}

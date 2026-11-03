@@ -96,7 +96,7 @@ export default function App() {
   const go = (page: Page, filters = {}) => navigate({ page, kind: 'all', search: '', account: '', allTime: false, date: undefined, section: undefined, cardCurrency: undefined, ...filters })
   const pageContent = sourceController.needsConnection && route.page !== 'settings'
     ? cloudMode
-      ? <EmptyState title={sourceController.backendAvailable === null ? '正在读取账本' : '账本暂不可用'} action={sourceController.backendAvailable !== null && <button className="button" onClick={() => void sourceController.refreshStatus()}>重试</button>} />
+      ? <EmptyState title={sourceController.initialLoading ? '正在读取账本' : '账本暂不可用'} action={!sourceController.initialLoading && <button className="button" onClick={() => void sourceController.refreshStatus()}>重试</button>} />
       : <EmptyState title="尚未连接账本" action={<button className="button" onClick={() => go('settings')}>连接账本</button>} />
     : route.page === 'overview'
     ? <OverviewPage ledger={ledger} month={route.month} currency={currency} cycle={cycle} onNavigate={go} />

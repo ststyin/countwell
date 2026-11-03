@@ -20,10 +20,12 @@ export function useLedgerSource() {
   const [error, setError] = useState<SourceFailure | null>(null)
   const [real, setReal] = useState(false)
   const [needsConnection, setNeedsConnection] = useState(() => cloudMode || expectedReal())
+  const [initialLoading, setInitialLoading] = useState(() => cloudMode || expectedReal())
   const snapshotId = useRef<string | null>(null)
   const mounted = useRef(true)
   const operation = useRef(0)
   const operating = useRef(false)
+  const refreshing = useRef(false)
 
   const expireSession = useCallback((error: unknown) => {
     if (!cloudMode || !(error instanceof SourceClientError) || error.failure.code !== 'UNAUTHENTICATED') return false
@@ -39,9 +41,18 @@ export function useLedgerSource() {
   }, [])
 
   const refreshStatus = useCallback(async () => {
-    if (operating.current) return
+    if (operating.current || refreshing.current) return
+    refreshing.current = true
+    if (!snapshotId.current && (cloudMode || expectedReal())) setInitialLoading(true)
     const generation = operation.current
     try {
+      // The cloud snapshot already contains its status. Avoid a separate serial
+      // status request on cold start, while retaining the same authenticated API.
+      if (cloudMode && !snapshotId.current) {
+        const snapshot = await sourceRequest<SourceSnapshot>('/api/ledger/snapshot')
+        if (mounted.current && generation === operation.current) { apply(snapshot); setBackendAvailable(true) }
+        return
+      }
       const next = await sourceRequest<SourceStatus>('/api/ledger/status')
       if (!mounted.current || generation !== operation.current) return
       setBackendAvailable(true); setStatus(next)
@@ -62,6 +73,9 @@ export function useLedgerSource() {
         setError(error instanceof SourceClientError ? error.failure : { message: cloudMode ? '无法连接账本，请稍后重试。' : '无法连接账本服务，请检查服务是否启动。' })
         if (!snapshotId.current) setNeedsConnection(true)
       }
+    } finally {
+      refreshing.current = false
+      if (mounted.current && generation === operation.current) setInitialLoading(false)
     }
   }, [apply, expireSession])
 
@@ -96,7 +110,7 @@ export function useLedgerSource() {
     snapshotId.current = null; setLedger(loadDemoLedger()); setReal(false); setNeedsConnection(false); setError(null); remember(false)
     } finally { operation.current++; operating.current = false; setBusy(false) }
   }
-  return { ledger, status, backendAvailable, busy: busy || status?.loading === true, error, real, needsConnection, connect: (request: ConnectRequest) => load(request), reload: () => load(), useDemo, refreshStatus }
+  return { ledger, status, backendAvailable, initialLoading, busy: busy || status?.loading === true, error, real, needsConnection, connect: (request: ConnectRequest) => load(request), reload: () => load(), useDemo, refreshStatus }
 }
 
 export type LedgerSourceController = ReturnType<typeof useLedgerSource>
