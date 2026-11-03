@@ -87,13 +87,37 @@ describe('report period presentation', () => {
     const html = renderToStaticMarkup(<AccountsPage ledger={cards} currency="CNY" onAccount={() => {}} />)
     const cash = html.slice(html.indexOf('class="panel account-list-panel"'), html.indexOf('class="panel liability-panel"'))
     expect(cash).toContain('3 个账户')
-    expect(cash).toContain('CMB · Debit')
-    expect(cash).toContain('BOCOM · Debit')
-    expect(cash).toContain('Broker · Debit')
+    expect(cash).toContain('Bank:CMB:Debit')
+    expect(cash).toContain('Bank:BOCOM:Debit')
+    expect(cash).toContain('Investment:Broker:Debit')
     expect(cash).toContain('暂无记录')
     const transactions = renderToStaticMarkup(<TransactionsPage ledger={cards} currency="CNY" route={{ page: 'transactions', month: '2026-10', kind: 'all', search: '', account: 'Assets:Bank:CMB:Debit', allTime: true }} onFilter={() => {}} />)
-    expect(transactions).toContain('CMB · Debit')
-    expect(transactions).toContain('BOCOM · Debit')
+    expect(transactions).toContain('Bank:CMB:Debit')
+    expect(transactions).toContain('Bank:BOCOM:Debit')
+  })
+
+  it('shows the complete account path below the root in accounts and transaction filters', () => {
+    const names = parseDemoLedger(`
+2026-01-01 open Assets:Cash:CNY
+  display_name: "现金"
+2026-01-01 open Assets:Investment:Fund:Example
+2026-01-01 open Liabilities:MeituanMonthlyPay
+2026-01-01 open Liabilities:CreditCard:CMB:Visa
+2026-01-01 open Equity:Opening
+2026-10-01 * "Opening"
+  Assets:Cash:CNY 100 CNY
+  Assets:Investment:Fund:Example 20 CNY
+  Liabilities:CreditCard:CMB:Visa -10 CNY
+  Equity:Opening -110 CNY
+`)
+    const html = renderToStaticMarkup(<AccountsPage ledger={names} currency="CNY" onAccount={() => {}} />)
+    for (const name of ['Cash:CNY', 'MeituanMonthlyPay', 'CreditCard:CMB:Visa', 'Investment:Fund:Example']) {
+      expect(html).toContain(`>${name}</strong>`)
+    }
+    const transactions = renderToStaticMarkup(<TransactionsPage ledger={names} currency="CNY" route={{ page: 'transactions', month: '2026-10', kind: 'all', search: '', account: 'Assets:Cash:CNY', allTime: true }} onFilter={() => {}} />)
+    expect(transactions).toContain('>Cash:CNY</option>')
+    expect(transactions).toContain('>CreditCard:CMB:Visa</option>')
+    expect(transactions).toContain('class="selected-account">Cash:CNY</span>')
   })
 
   it('retains all-time account drilldown in shareable routes and can switch back to a period', () => {

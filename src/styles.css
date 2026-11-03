@@ -526,6 +526,7 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .investment-item-name { min-width: 0; }
 .investment-item-name strong { display: block; font-size: 13px; font-weight: 450; overflow-wrap: anywhere; }
 .investment-item-name small, .investment-item-value small { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
+.investment-item-name small { overflow-wrap: anywhere; }
 .investment-item-value { text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; }
 .investment-chevron { color: var(--muted); transition: transform .18s; }
 .investment-item[open] .investment-chevron { transform: rotate(180deg); }
