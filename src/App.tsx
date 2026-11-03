@@ -61,7 +61,7 @@ export default function App() {
         const explicitMonth = new URLSearchParams(window.location.hash.split('?')[1]).get('month')
         // Loading the private snapshot must not overwrite a linked report period.
         if (!explicitMonth || !/^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(explicitMonth)) navigate({ month: defaultMonth })
-      } else navigate({ month: defaultMonth, account: '', search: '', kind: 'all', allTime: false })
+      } else navigate({ month: defaultMonth, account: '', search: '', kind: 'all', allTime: false, date: undefined, section: undefined })
     }
     setSourceFileIndex(0)
   }, [sourceController.status?.snapshotId, sourceController.real])
@@ -93,7 +93,7 @@ export default function App() {
     }
   }, [sourceOpen])
 
-  const go = (page: Page, filters = {}) => navigate({ page, kind: 'all', search: '', account: '', allTime: false, ...filters })
+  const go = (page: Page, filters = {}) => navigate({ page, kind: 'all', search: '', account: '', allTime: false, date: undefined, section: undefined, ...filters })
   const pageContent = sourceController.needsConnection && route.page !== 'settings'
     ? cloudMode
       ? <EmptyState title={sourceController.backendAvailable === null ? '正在读取账本' : '账本暂不可用'} action={sourceController.backendAvailable !== null && <button className="button" onClick={() => void sourceController.refreshStatus()}>重试</button>} />
@@ -103,7 +103,7 @@ export default function App() {
     : route.page === 'transactions'
       ? <TransactionsPage ledger={ledger} route={route} currency={currency} cycle={cycle} onFilter={navigate} />
       : route.page === 'accounts'
-        ? <AccountsPage ledger={ledger} currency={currency} onAccount={account => go('transactions', { account, allTime: true })} />
+        ? <AccountsPage ledger={ledger} currency={currency} section={route.section} onAccount={account => go('transactions', { account, allTime: true })} />
         : <SettingsPage ledger={ledger} month={route.month} cycle={cycle} onCycle={setCycle} hidden={hidden} onSource={openSource} controller={sourceController} />
 
   return <DisplayContext.Provider value={{ hidden, currency }}>
@@ -121,7 +121,7 @@ export default function App() {
           {sourceController.real && sourceController.backendAvailable === false && <div className="notice"><span>连接中断 · 保留上次数据</span><button className="text-action" onClick={() => go('settings')}>检查连接</button></div>}
           {sourceController.error && sourceController.real && <div className="notice source-error"><span>更新失败 · 保留上次数据</span><button className="text-action" onClick={() => go('settings')}>查看错误</button></div>}
           {pwa.updateAvailable && <div className="notice update-notice"><span>有可用更新</span><button className="text-action" onClick={() => pwa.applyUpdate()}>更新 <ArrowUpRight size={15} /></button></div>}
-          <header className="page-header"><h1 className="screen-heading">{active.title}</h1>{datedPage && <div className="period-control">{route.page === 'transactions' && <button className="period-scope" aria-pressed={Boolean(route.allTime)} onClick={() => navigate({ allTime: !route.allTime })}>{route.allTime ? '全部时间' : '全部'}</button>}{!(route.page === 'transactions' && route.allTime) && <><div className="month-control"><button className="icon-button" aria-label="上个月" onClick={() => navigate({ month: shiftMonth(route.month, -1) })}><ChevronLeft size={15} /></button><label className="month-label"><span>{route.month.replace('-', '.')}</span><input type="month" className="month-input" aria-label="查询月份" value={route.month} min="1900-01" max="9998-12" onChange={e => { if (e.target.value) navigate({ month: e.target.value }) }} /></label><button className="icon-button" aria-label="下个月" onClick={() => navigate({ month: shiftMonth(route.month, 1) })}><ChevronRight size={15} /></button></div>{cycle.mode === 'custom' && <span className="period-range">{period.start.slice(5).replace('-', '.')}–{period.end.slice(5).replace('-', '.')}</span>}</>}</div>}</header>
+          <header className="page-header"><h1 className="screen-heading">{active.title}</h1>{datedPage && <div className="period-control">{route.page === 'transactions' && <button className="period-scope" aria-pressed={Boolean(route.allTime)} onClick={() => navigate({ allTime: !route.allTime, date: undefined })}>{route.allTime ? '全部时间' : '全部'}</button>}{!(route.page === 'transactions' && route.allTime) && <><div className="month-control"><button className="icon-button" aria-label="上个月" onClick={() => navigate({ month: shiftMonth(route.month, -1), date: undefined })}><ChevronLeft size={15} /></button><label className="month-label"><span>{route.month.replace('-', '.')}</span><input type="month" className="month-input" aria-label="查询月份" value={route.month} min="1900-01" max="9998-12" onChange={e => { if (e.target.value) navigate({ month: e.target.value, date: undefined }) }} /></label><button className="icon-button" aria-label="下个月" onClick={() => navigate({ month: shiftMonth(route.month, 1), date: undefined })}><ChevronRight size={15} /></button></div>{cycle.mode === 'custom' && <span className="period-range">{period.start.slice(5).replace('-', '.')}–{period.end.slice(5).replace('-', '.')}</span>}</>}</div>}</header>
           {pageContent}
         </div>
       </main>

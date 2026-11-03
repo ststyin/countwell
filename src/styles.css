@@ -344,8 +344,8 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .balance-strip-title > span:last-child { display: flex; align-items: center; gap: 10px; }
   .balance-date { margin-top: 0; font-size: 11px; }
   .balance-icon { width: 30px; height: 30px; border-radius: 9px; }
-  .balance-strip > .balance-item:nth-of-type(2) { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 3px 0 13px; border-bottom: 1px solid var(--line); }
-  .balance-strip > .balance-item:nth-of-type(2) > .money { font-size: 25px; }
+  .balance-strip > .balance-item:nth-child(2) { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 3px 0 13px; border-bottom: 1px solid var(--line); }
+  .balance-strip > .balance-item:nth-child(2) > .money { font-size: 25px; }
   .balance-strip .balance-item + .balance-item { padding-left: 0; }
   .balance-strip .balance-item > .money { font-size: 20px; }
   .balance-link { position: absolute; right: 13px; top: 11px; grid-column: auto; padding: 0; margin: 0; min-width: 35px; min-height: 40px; }
@@ -816,3 +816,10 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .cloud-source-details dd { margin: 0; color: var(--text-secondary); overflow-wrap: anywhere; }
 .cloud-source-details a:hover { color: var(--accent); }
 .cloud-source-pending { color: var(--muted); font-size: 12px; }
+
+.drilldown-card, .balance-drilldown { text-align: left; cursor: pointer; }
+.drilldown-card:hover, .balance-drilldown:hover { color: var(--accent); }
+.chart-day { cursor: pointer; }
+.chart-day:hover .chart-bar, .chart-day:focus-visible .chart-bar { opacity: 1; }
+.chart-day:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.account-list-panel, .liability-panel { scroll-margin-top: 16px; }

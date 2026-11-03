@@ -15,7 +15,7 @@ describe('official financial snapshot presentation', () => {
         { account: 'Assets:Bank', amount: '-20', currency: 'CNY' },
       ] }],
     }
-    const html = renderToStaticMarkup(<DisplayContext.Provider value={{ hidden: false, currency: 'CNY' }}><OverviewPage ledger={ledger} month="2026-10" currency="CNY" onNavigate={() => {}} /></DisplayContext.Provider>)
+    const html = renderToStaticMarkup(<DisplayContext.Provider value={{ hidden: false, currency: 'CNY' }}><OverviewPage ledger={ledger} month="2026-10" currency="CNY" today="2026-10-01" onNavigate={() => {}} /></DisplayContext.Provider>)
     const summary = html.slice(html.indexOf('class="flow-grid"'), html.indexOf('class="balance-strip"'))
     expect(summary.match(/>—</g)).toHaveLength(3)
     expect(summary).not.toContain('0.00')

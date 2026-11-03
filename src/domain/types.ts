@@ -174,6 +174,7 @@ export interface AccountReport {
 export interface TransactionQuery {
   /** Omit month to inspect the full account history. */
   month?: string;
+  date?: string;
   cycle?: BillingCycle;
   search?: string;
   kind?: TransactionKind | 'all';

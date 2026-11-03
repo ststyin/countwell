@@ -160,7 +160,7 @@ export function getTransactions(ledger: Ledger, query: TransactionQuery): Activi
   const { D } = arithmetic(ledger);
   const { start, end } = query.month === undefined ? { start: '0001-01-01', end: '9999-12-31' } : reportPeriod(query.month, query.cycle);
   const search = query.search?.toLowerCase() ?? '';
-  return ledger.transactions.filter(transaction => transaction.date >= start && transaction.date <= end)
+  return ledger.transactions.filter(transaction => transaction.date >= start && transaction.date <= end && (!query.date || transaction.date === query.date))
     .map(transaction => ({ transaction, amounts: activityAmounts(ledger, transaction, D) }))
     .filter(({ transaction, amounts }) => (!query.currency || amounts.some(amount => amount.currency === query.currency))
       && (!query.kind || query.kind === 'all' || amounts.some(amount => amount.kind === query.kind && (!query.currency || amount.currency === query.currency)))

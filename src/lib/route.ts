@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { TransactionKind } from '../domain/types'
+import { billingMonthForDate } from '../domain/period'
 
 export type Page = 'overview' | 'transactions' | 'accounts' | 'settings'
-export interface Route { page: Page; month: string; search: string; kind: TransactionKind | 'all'; account: string; allTime?: boolean }
+export interface Route { page: Page; month: string; search: string; kind: TransactionKind | 'all'; account: string; allTime?: boolean; date?: string; section?: 'cash' | 'debt' }
 const pages = new Set(['overview', 'transactions', 'accounts', 'settings'])
 const kinds = new Set(['all', 'income', 'expense', 'refund', 'transfer', 'investment'])
 
@@ -10,6 +11,10 @@ export function parseRoute(hash: string, defaultMonth = '2026-10'): Route {
   const [path, query] = hash.replace(/^#\/?/, '').split('?')
   const params = new URLSearchParams(query)
   const month = params.get('month') ?? defaultMonth
+  const date = params.get('date') ?? ''
+  let validDate = false
+  try { billingMonthForDate(date); validDate = true } catch { /* Ignore invalid dates in links. */ }
+  const section = params.get('section')
   return {
     page: pages.has(path) ? path as Page : 'overview',
     month: /^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(month) ? month : defaultMonth,
@@ -17,6 +22,8 @@ export function parseRoute(hash: string, defaultMonth = '2026-10'): Route {
     kind: kinds.has(params.get('kind') ?? '') ? params.get('kind') as Route['kind'] : 'all',
     account: params.get('account') ?? '',
     ...(params.get('range') === 'all' ? { allTime: true } : {}),
+    ...(validDate ? { date } : {}),
+    ...(section === 'cash' || section === 'debt' ? { section } : {}),
   }
 }
 
@@ -26,6 +33,8 @@ export function routeHref(page: Page, month: string, filters: Partial<Route> = {
   if (filters.kind && filters.kind !== 'all') params.set('kind', filters.kind)
   if (filters.account) params.set('account', filters.account)
   if (filters.allTime) params.set('range', 'all')
+  if (filters.date) params.set('date', filters.date)
+  if (filters.section) params.set('section', filters.section)
   return `#${page}?${params}`
 }
 
@@ -37,9 +46,10 @@ export function useRoute(defaultMonth = '2026-10') {
     return () => window.removeEventListener('hashchange', update)
   }, [defaultMonth])
   useEffect(() => {
+    if (route.page === 'accounts' && route.section) return
     document.getElementById('page-main')?.scrollTo({ top: 0 })
     window.scrollTo({ top: 0 })
-  }, [route.page])
+  }, [route.page, route.section])
   const navigate = (patch: Partial<Route>, replace = false) => {
     const next = { ...route, ...patch }
     const hash = routeHref(next.page, next.month, next)

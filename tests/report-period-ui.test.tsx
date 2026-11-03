@@ -32,7 +32,7 @@ const ledger = parseDemoLedger(`
 
 describe('report period presentation', () => {
   it('passes the selected cycle to totals, daily chart and recent transaction data', () => {
-    const html = renderToStaticMarkup(<DisplayContext.Provider value={{ hidden: false, currency: 'CNY' }}><OverviewPage ledger={ledger} month="2026-11" currency="CNY" cycle={{ mode: 'custom', day: 25, boundary: 'start' }} onNavigate={() => {}} /></DisplayContext.Provider>)
+    const html = renderToStaticMarkup(<DisplayContext.Provider value={{ hidden: false, currency: 'CNY' }}><OverviewPage ledger={ledger} month="2026-11" currency="CNY" today="2026-10-25" cycle={{ mode: 'custom', day: 25, boundary: 'start' }} onNavigate={() => {}} /></DisplayContext.Provider>)
     const totals = html.slice(html.indexOf('class="flow-grid"'), html.indexOf('class="balance-strip"'))
     expect(totals).toContain('本期支出')
     expect(totals).toContain('10.00')
@@ -81,4 +81,36 @@ describe('report period presentation', () => {
     expect(account).toContain('2 笔记录')
     expect(account).toContain('USD purchase')
   })
+  it('keeps the clicked day in shareable links and filters across the billing boundary', () => {
+    const cycle = { mode: 'custom', day: 25, boundary: 'start' } as const
+    const link = routeHref('transactions', '2026-11', { date: '2026-10-25' })
+    const route = parseRoute(link)
+    expect(route.date).toBe('2026-10-25')
+    const html = renderToStaticMarkup(<TransactionsPage ledger={ledger} currency="CNY" cycle={cycle} route={route} onFilter={() => {}} />)
+    expect(html).toContain('Inside billing period')
+    expect(html).not.toContain('Outside billing period')
+    expect(html).toContain('2026-10-25')
+    expect(parseRoute(routeHref('transactions', '2026-11', { date: '2026-02-30' })).date).toBeUndefined()
+    const outside = renderToStaticMarkup(<TransactionsPage ledger={ledger} currency="CNY" cycle={cycle} route={{ ...route, date: '2026-11-25' }} onFilter={() => {}} />)
+    expect(outside).not.toContain('Outside billing period')
+    expect(outside).toContain('0 笔记录')
+  })
+
+  it('lists only today across all currencies, independently of the selected month', () => {
+    const html = renderToStaticMarkup(<OverviewPage ledger={ledger} month="2026-10" currency="CNY" today="2026-12-02" onNavigate={() => {}} />)
+    const recent = html.slice(html.indexOf('recent-panel'))
+    expect(recent).toContain('今日 · 1 笔交易')
+    expect(recent).toContain('Foreign balance')
+    expect(recent).not.toContain('Inside billing period')
+    expect(recent).not.toContain('Later source balance')
+  })
+
+  it('provides accessible targets for each day and preserves account-section links', () => {
+    const html = renderToStaticMarkup(<OverviewPage ledger={ledger} month="2026-11" currency="CNY" today="2026-12-02" cycle={{ mode: 'custom', day: 25, boundary: 'start' }} onNavigate={() => {}} />)
+    expect(html).toContain('查看 2026-10-25 的交易')
+    expect(html).toContain('查看 2026-11-24 的交易')
+    expect(html).not.toContain('查看 2026-11-25 的交易')
+    expect(parseRoute(routeHref('accounts', '2026-11', { section: 'debt' })).section).toBe('debt')
+  })
+
 })
