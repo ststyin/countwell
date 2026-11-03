@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { TransactionKind } from '../domain/types'
 
 export type Page = 'overview' | 'transactions' | 'accounts' | 'settings'
-export interface Route { page: Page; month: string; search: string; kind: TransactionKind | 'all'; account: string }
+export interface Route { page: Page; month: string; search: string; kind: TransactionKind | 'all'; account: string; allTime?: boolean }
 const pages = new Set(['overview', 'transactions', 'accounts', 'settings'])
 const kinds = new Set(['all', 'income', 'expense', 'refund', 'transfer', 'investment'])
 
@@ -16,6 +16,7 @@ export function parseRoute(hash: string, defaultMonth = '2026-10'): Route {
     search: params.get('q') ?? '',
     kind: kinds.has(params.get('kind') ?? '') ? params.get('kind') as Route['kind'] : 'all',
     account: params.get('account') ?? '',
+    ...(params.get('range') === 'all' ? { allTime: true } : {}),
   }
 }
 
@@ -24,6 +25,7 @@ export function routeHref(page: Page, month: string, filters: Partial<Route> = {
   if (filters.search) params.set('q', filters.search)
   if (filters.kind && filters.kind !== 'all') params.set('kind', filters.kind)
   if (filters.account) params.set('account', filters.account)
+  if (filters.allTime) params.set('range', 'all')
   return `#${page}?${params}`
 }
 

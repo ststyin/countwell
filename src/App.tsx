@@ -14,6 +14,8 @@ import { cloudMode } from './lib/runtime'
 import BrandIcon from './components/BrandIcon'
 import ThemeControl from './components/ThemeControl'
 import { useTheme } from './hooks/useTheme'
+import { useBillingCycle } from './hooks/useBillingCycle'
+import { billingMonthForDate, reportPeriod } from './domain'
 
 const navigation = [
   { page: 'overview', title: '收支总览', short: '总览', icon: LayoutDashboard },
@@ -32,10 +34,15 @@ export default function App() {
   const sourceFiles = ledger.files?.length ? ledger.files : [{ path: 'demo.beancount', content: ledger.source }]
   const [sourceFileIndex, setSourceFileIndex] = useState(0)
   const sourceIdentity = useRef('')
-  const { route, navigate } = useRoute(ledger.defaultMonth)
+  const { cycle, setCycle } = useBillingCycle()
+  const latestDate = ledger.transactions.reduce((latest, transaction) => transaction.date > latest ? transaction.date : latest, '') || `${ledger.defaultMonth}-01`
+  const defaultMonth = cycle.mode === 'calendar' ? ledger.defaultMonth : billingMonthForDate(latestDate, cycle)
+  const { route, navigate } = useRoute(defaultMonth)
   const [hidden, setHidden] = useState(() => readPreference('privacy', 'false') === 'true')
   const currency = 'CNY'
   const { preference, setPreference } = useTheme()
+  const period = reportPeriod(route.month, cycle)
+  const datedPage = route.page === 'overview' || route.page === 'transactions'
   const [sourceOpen, setSourceOpen] = useState(false)
   const sourceTrigger = useRef<HTMLElement | null>(null)
   const openSource = () => { sourceTrigger.current = document.activeElement as HTMLElement; setSourceOpen(true) }
@@ -48,8 +55,13 @@ export default function App() {
     // A cloud snapshot changes commit refs while the selected ledger stays the same.
     const identity = JSON.stringify(cloudMode ? { type: source.type, repository: source.repository, entryPath: source.entryPath } : source)
     if (sourceIdentity.current !== identity) {
+      const initialCloudSource = cloudMode && sourceIdentity.current === ''
       sourceIdentity.current = identity
-      navigate({ month: ledger.defaultMonth, account: '', search: '', kind: 'all' })
+      if (initialCloudSource) {
+        const explicitMonth = new URLSearchParams(window.location.hash.split('?')[1]).get('month')
+        // Loading the private snapshot must not overwrite a linked report period.
+        if (!explicitMonth || !/^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(explicitMonth)) navigate({ month: defaultMonth })
+      } else navigate({ month: defaultMonth, account: '', search: '', kind: 'all', allTime: false })
     }
     setSourceFileIndex(0)
   }, [sourceController.status?.snapshotId, sourceController.real])
@@ -59,7 +71,7 @@ export default function App() {
       localStorage.setItem('countwell.privacy', String(hidden))
     } catch { /* The ledger is never stored in browser storage. */ }
   }, [hidden])
-  useEffect(() => { document.title = `${active.title} · ${monthLabel(route.month)} · Countwell` }, [active.title, route.month])
+  useEffect(() => { document.title = `${active.title}${datedPage ? ` · ${route.allTime && route.page === 'transactions' ? '全部时间' : monthLabel(route.month)}` : ''} · Countwell` }, [active.title, route.month, datedPage, route.allTime])
   useEffect(() => {
     if (!sourceOpen) return
     const previousOverflow = document.body.style.overflow
@@ -81,18 +93,18 @@ export default function App() {
     }
   }, [sourceOpen])
 
-  const go = (page: Page, filters = {}) => navigate({ page, kind: 'all', search: '', account: '', ...filters })
+  const go = (page: Page, filters = {}) => navigate({ page, kind: 'all', search: '', account: '', allTime: false, ...filters })
   const pageContent = sourceController.needsConnection && route.page !== 'settings'
     ? cloudMode
       ? <EmptyState title={sourceController.backendAvailable === null ? '正在读取账本' : '账本暂不可用'} action={sourceController.backendAvailable !== null && <button className="button" onClick={() => void sourceController.refreshStatus()}>重试</button>} />
       : <EmptyState title="尚未连接账本" action={<button className="button" onClick={() => go('settings')}>连接账本</button>} />
     : route.page === 'overview'
-    ? <OverviewPage ledger={ledger} month={route.month} currency={currency} onNavigate={go} />
+    ? <OverviewPage ledger={ledger} month={route.month} currency={currency} cycle={cycle} onNavigate={go} />
     : route.page === 'transactions'
-      ? <TransactionsPage ledger={ledger} route={route} currency={currency} onFilter={navigate} />
+      ? <TransactionsPage ledger={ledger} route={route} currency={currency} cycle={cycle} onFilter={navigate} />
       : route.page === 'accounts'
-        ? <AccountsPage ledger={ledger} month={route.month} currency={currency} onAccount={account => go('transactions', { account })} />
-        : <SettingsPage ledger={ledger} hidden={hidden} onSource={openSource} controller={sourceController} />
+        ? <AccountsPage ledger={ledger} currency={currency} onAccount={account => go('transactions', { account, allTime: true })} />
+        : <SettingsPage ledger={ledger} month={route.month} cycle={cycle} onCycle={setCycle} hidden={hidden} onSource={openSource} controller={sourceController} />
 
   return <DisplayContext.Provider value={{ hidden, currency }}>
     <div className={`app-shell${sourceOpen ? ' drawer-open' : ''}`}>
@@ -109,7 +121,7 @@ export default function App() {
           {sourceController.real && sourceController.backendAvailable === false && <div className="notice"><span>连接中断 · 保留上次数据</span><button className="text-action" onClick={() => go('settings')}>检查连接</button></div>}
           {sourceController.error && sourceController.real && <div className="notice source-error"><span>更新失败 · 保留上次数据</span><button className="text-action" onClick={() => go('settings')}>查看错误</button></div>}
           {pwa.updateAvailable && <div className="notice"><span>有可用更新</span><button className="text-action" onClick={() => pwa.applyUpdate()}>更新 <ArrowUpRight size={15} /></button></div>}
-          <header className="page-header"><h1 className="screen-heading">{active.title}</h1>{route.page !== 'settings' && <div className="month-control"><button className="icon-button" aria-label="上个月" onClick={() => navigate({ month: shiftMonth(route.month, -1) })}><ChevronLeft size={17} /></button><label className="month-label"><span>{monthLabel(route.month)}</span><input type="month" className="month-input" aria-label="查询月份" value={route.month} min="1900-01" max="9998-12" onChange={e => { if (e.target.value) navigate({ month: e.target.value }) }} /></label><button className="icon-button" aria-label="下个月" onClick={() => navigate({ month: shiftMonth(route.month, 1) })}><ChevronRight size={17} /></button></div>}</header>
+          <header className="page-header"><h1 className="screen-heading">{active.title}</h1>{datedPage && <div className="period-control">{route.page === 'transactions' && <button className="period-scope" aria-pressed={Boolean(route.allTime)} onClick={() => navigate({ allTime: !route.allTime })}>{route.allTime ? '全部时间' : '全部'}</button>}{!(route.page === 'transactions' && route.allTime) && <><div className="month-control"><button className="icon-button" aria-label="上个月" onClick={() => navigate({ month: shiftMonth(route.month, -1) })}><ChevronLeft size={15} /></button><label className="month-label"><span>{route.month.replace('-', '.')}</span><input type="month" className="month-input" aria-label="查询月份" value={route.month} min="1900-01" max="9998-12" onChange={e => { if (e.target.value) navigate({ month: e.target.value }) }} /></label><button className="icon-button" aria-label="下个月" onClick={() => navigate({ month: shiftMonth(route.month, 1) })}><ChevronRight size={15} /></button></div>{cycle.mode === 'custom' && <span className="period-range">{period.start.slice(5).replace('-', '.')}–{period.end.slice(5).replace('-', '.')}</span>}</>}</div>}</header>
           {pageContent}
         </div>
       </main>
