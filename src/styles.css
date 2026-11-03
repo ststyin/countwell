@@ -196,6 +196,8 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 .notice { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; margin-bottom: 21px; border: 1px solid var(--line); border-radius: 13px; background: var(--accent-soft); color: var(--text-secondary); font-size: 12px; }
 .notice p { flex: 1; min-width: 0; }
 .notice strong { font-weight: 500; color: var(--text); }
+.update-notice { align-items: center; justify-content: space-between; }
+.update-notice .text-action { margin-left: auto; }
 .notice-icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; color: var(--accent); }
 .notice-icon svg { width: 17px; height: 17px; }
 .mobile-nav { display: none; }
