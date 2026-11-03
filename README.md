@@ -77,4 +77,4 @@ npm run build
 
 若需在云端即时读取 GitHub／WebDAV 原始文件，需要带 Python 的后端及访问控制，例如 Cloudflare Containers。本机加载服务仅监听 127.0.0.1，请勿直接无认证暴露到公网。PWA 更新与缓存见 [docs/PWA.md](docs/PWA.md)。
 
-私有 GitHub 账本也支持“本机官方校验 → 受保护 Worker 快照”的只读部署，无需云端 Python 或财务数据库。使用独立的私有 Worker、GitHub 登录与服务器端快照文件，详见 [私有云账本](docs/PRIVATE_CLOUD.md)。
+私有 GitHub 账本支持通过 GitHub Actions 在提交后自动校验、更新受保护 Worker 快照，无需本机开机、云端 Python 服务或财务数据库。使用独立的私有 Worker、GitHub 登录与服务器端快照文件，配置步骤见 [私有云账本](docs/PRIVATE_CLOUD.md)。

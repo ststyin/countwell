@@ -32,7 +32,43 @@ Worker 需要三个 Secret：
 
 登录只申请 `read:user`，用于识别用户，不申请私有仓库权限。同步脚本通过仓库所有者 ID 设置 `GITHUB_ALLOWED_USER_ID`；已有来源若发生所有者变化会停止同步。
 
-## 更新账本
+## 提交后自动更新
+
+自动工作流安装在账本私有仓库中，监听默认分支提交。GitHub 托管环境使用官方引擎完整校验、生成私有快照并构建界面，成功后更新已有私有 Worker。电脑无需开机。
+
+首次安装时固定一个已经推送和验证的 Countwell 完整提交 SHA：
+
+```sh
+npm run cloud:auto:install -- --app-ref <Countwell完整提交SHA> --account-id <Cloudflare账号ID>
+```
+
+安装器沿用 `.countwell/cloud/source.json` 中的来源与固定账号 ID，仅添加 `.github/workflows/countwell-sync.yml`，不修改账本原文或其他工作流。首次只开放手动验证；在 Actions 的 Run workflow 中选择 `validate_only=true` 可以先验证读取、校验和构建。
+
+为 CI 创建专用的 Cloudflare Account API Token，授予已有私有 Worker 的 **Editor** 权限，并将资源范围限定为该 Worker。将它保存为账本私库的 Actions Secret `CLOUDFLARE_API_TOKEN`。无需将本机 Cloudflare OAuth 凭证、GitHub PAT 或站点的三个登录／会话 Secret 复制到 CI。
+
+安装器负责配置非敏感仓库变量：
+
+| 变量 | 用途 |
+| --- | --- |
+| `CLOUDFLARE_ACCOUNT_ID` | 部署目标账号 |
+| `COUNTWELL_ALLOWED_USER_ID` | 不随仓库转移改变的允许登录账号 |
+| `COUNTWELL_LEDGER_ENTRY` | Beancount 入口相对路径 |
+| `COUNTWELL_SITE_URL` | 发布后的登录保护检查 |
+| `COUNTWELL_AUTO_SYNC_ENABLED` | 自动发布开关 |
+
+凭证准备好后启用：
+
+```sh
+npm run cloud:auto:install -- --activate
+```
+
+启用会添加默认分支的 `push` 触发；之后提交账本即可更新网站。也支持手动 Run workflow。校验失败时不会执行发布，线上继续使用此前快照；生产任务串行运行，发布前再次检查分支 HEAD，过期任务不会覆盖新版本。
+
+工作流只申请 GitHub `contents: read`。GitHub 临时 Token 只用于私库读取和版本检查，Cloudflare Token 只提供给发布步骤。依赖缓存只包含 npm／pip，不缓存或上传账本工作目录。官方 Actions 和应用代码均固定为完整提交 SHA。
+
+若要更新应用代码版本，使用新的已验证 SHA 再运行 `cloud:auto:install -- --app-ref <新SHA> --activate`；单纯的账本更新无需改应用版本。
+
+## 手动更新
 
 提交 Beancount 修改到 GitHub 后，在本机运行：
 
@@ -40,7 +76,7 @@ Worker 需要三个 Secret：
 npm run cloud:sync -- --deploy
 ```
 
-省略来源参数时沿用上次配置。网页中的“刷新账本”读取最新已部署快照，不会在云端启动 Python 或拉取 GitHub。当前没有开启自动同步流水线。
+省略来源参数时沿用上次配置。此命令可用于手动发布；自动同步启用后，日常提交无需执行它。网页中的“刷新账本”读取最新已部署快照，不会在云端启动 Python 或拉取 GitHub。
 
 ## 访问与缓存
 
@@ -48,4 +84,4 @@ GitHub OAuth 使用 state 与 PKCE。成功后设置 8 小时的 Secure、HttpOn
 
 PWA 缓存只包含公开应用壳，真实账本仅在已登录页面内存中展示。会话失效会清空页面中的账本；离线刷新需要重新连接并登录。原文查看与导出同样位于登录保护之后。
 
-参考：[创建 OAuth 应用](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app)、[授权 OAuth 应用](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps)。
+参考：[创建 OAuth 应用](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app)、[授权 OAuth 应用](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps)、[Cloudflare GitHub Actions 部署](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/)、[Worker 级权限](https://developers.cloudflare.com/workers/authorization/workers/)。
