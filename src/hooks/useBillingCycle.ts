@@ -9,13 +9,15 @@ const listeners = new Set<() => void>()
 function validCycle(value: unknown): value is BillingCycle {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const cycle = value as Partial<BillingCycle>
-  return (cycle.mode === 'calendar' || cycle.mode === 'custom')
+  return (cycle.mode === 'calendar' || cycle.mode === 'custom' || cycle.mode === 'range')
     && Number.isInteger(cycle.day) && Number(cycle.day) >= 1 && Number(cycle.day) <= 31
     && (cycle.boundary === 'start' || cycle.boundary === 'end')
+    && (cycle.mode !== 'range' || (Number.isInteger(cycle.startDay) && Number(cycle.startDay) >= 1 && Number(cycle.startDay) <= 31 && Number.isInteger(cycle.endDay) && Number(cycle.endDay) >= 1 && Number(cycle.endDay) <= 31))
 }
 
 function normalize(cycle: BillingCycle): BillingCycle {
   return cycle.mode === 'calendar' ? { ...DEFAULT_BILLING_CYCLE }
+    : cycle.mode === 'range' ? { mode: 'range', day: cycle.day, boundary: cycle.boundary, startDay: cycle.startDay, endDay: cycle.endDay }
     : { mode: 'custom', day: cycle.day, boundary: cycle.boundary }
 }
 
@@ -35,7 +37,7 @@ function savedCycle(unavailableFallback: BillingCycle = DEFAULT_BILLING_CYCLE): 
 let state = savedCycle()
 
 function update(cycle: BillingCycle) {
-  if (state.mode === cycle.mode && state.day === cycle.day && state.boundary === cycle.boundary) return
+  if (state.mode === cycle.mode && state.day === cycle.day && state.boundary === cycle.boundary && state.startDay === cycle.startDay && state.endDay === cycle.endDay) return
   state = cycle
   listeners.forEach(listener => listener())
 }

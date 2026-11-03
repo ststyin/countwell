@@ -4,12 +4,14 @@ export type TransactionKind = 'income' | 'expense' | 'refund' | 'transfer' | 'in
 
 /** Custom cycles are named for the month containing their ending anchor. */
 export interface BillingCycle {
-  mode: 'calendar' | 'custom';
+  mode: 'calendar' | 'custom' | 'range';
   day: number;
   boundary: 'start' | 'end';
+  startDay?: number;
+  endDay?: number;
 }
 
-/** Both date endpoints are inclusive; adjacent periods never share a date. */
+/** Both date endpoints are inclusive. Independently configured periods may overlap. */
 export interface ReportingPeriod {
   start: string;
   end: string;

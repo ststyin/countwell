@@ -57,6 +57,24 @@ describe('billing-cycle preference', () => {
     }
   })
 
+  it('persists both independent days and rejects incomplete ranges', async () => {
+    const browser = browserFixture()
+    const preference = await import('../src/hooks/useBillingCycle')
+    const cycle = { mode: 'range', day: 1, boundary: 'start', startDay: 20, endDay: 25 } as const
+    preference.setBillingCycle(cycle)
+    expect(JSON.parse(browser.values.get(key)!)).toEqual(cycle)
+    preference.setBillingCycle({ ...cycle, endDay: 0 })
+    expect(preference.getBillingCycle()).toEqual(cycle)
+    vi.resetModules()
+    expect((await import('../src/hooks/useBillingCycle')).getBillingCycle()).toEqual(cycle)
+    const html = renderToStaticMarkup(<BillingCycleSettings month="2026-11" cycle={cycle} onChange={() => {}} />)
+    expect(html).toContain('上月开始日')
+    expect(html).toContain('本月结束日')
+    expect(html).toContain('2026-10-20')
+    expect(html).toContain('2026-11-25')
+    expect(html).toContain('相邻周期可能重叠')
+  })
+
   it('shares updates between active views and tabs and cleans up the storage listener', async () => {
     const browser = browserFixture()
     const preference = await import('../src/hooks/useBillingCycle')

@@ -17,6 +17,18 @@ const preamble = `
 const fixture = (body: string) => parseDemoLedger(preamble + body);
 
 describe('recurring reporting periods', () => {
+  it('supports independent inclusive start and end days, including short months and overlapping or skipped dates', () => {
+    const range = (startDay: number, endDay: number): BillingCycle => ({ mode: 'range', day: 1, boundary: 'start', startDay, endDay });
+    expect(reportPeriod('2026-11', range(20, 25))).toMatchObject({ start: '2026-10-20', end: '2026-11-25' });
+    expect(reportPeriod('2026-12', range(20, 25)).start).toBe('2026-11-20');
+    expect(reportPeriod('2026-11', range(28, 20))).toMatchObject({ start: '2026-10-28', end: '2026-11-20' });
+    expect(reportPeriod('2024-03', range(31, 30))).toMatchObject({ start: '2024-02-29', end: '2024-03-30' });
+    expect(reportPeriod('2023-03', range(31, 31))).toMatchObject({ start: '2023-02-28', end: '2023-03-31' });
+    expect(reportPeriod('2026-01', range(25, 10))).toMatchObject({ start: '2025-12-25', end: '2026-01-10' });
+    expect(billingMonthForDate('2026-11-22', range(20, 25))).toBe('2026-11');
+    expect(billingMonthForDate('2026-11-23', range(28, 20))).toBe('2026-12');
+    for (const invalid of [0, 32, 2.5]) expect(() => reportPeriod('2026-11', range(invalid, 25))).toThrow('账单周期');
+  });
   it('keeps natural months as the default, including Gregorian leap-year rules', () => {
     for (const month of ['2026-11', '2024-02', '1900-02', '2000-02']) {
       const period = reportPeriod(month);
@@ -140,6 +152,13 @@ describe('billing-period financial reports', () => {
     expect(overview.categories.map(category => category.amount)).toEqual(['7']);
     expect(overview.transactionCount).toBe(transactions.length);
     expect(getOverview(ledger, '2026-11', 'USD', cycle)).toMatchObject({ expense: '11', transactionCount: 1 });
+  });
+
+  it('uses both independently selected dates for the overview and transaction list', () => {
+    const cycle: BillingCycle = { mode: 'range', day: 1, boundary: 'start', startDay: 26, endDay: 25 };
+    const overview = getOverview(ledger, '2026-11', 'CNY', cycle);
+    expect(overview).toMatchObject({ income: '100', expense: '37', transactionCount: 3 });
+    expect(getTransactions(ledger, { month: '2026-11', currency: 'CNY', cycle }).map(transaction => transaction.narration)).toEqual(['Next start', 'Refund', 'Salary']);
   });
 
   it('uses an inclusive end anchor consistently, without duplicating its transactions next period', () => {

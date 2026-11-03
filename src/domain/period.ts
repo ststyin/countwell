@@ -26,11 +26,13 @@ function followingDate(iso: string, offset = 1): string {
   return `${String(resultYear).padStart(4, '0')}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
 }
 
-/** Calendar months or a continuous recurring cycle, with short-month anchors clamped. */
+/** Calendar months or recurring cycles, with short-month anchors clamped. */
 export function reportPeriod(month: string, cycle: BillingCycle = DEFAULT_BILLING_CYCLE): ReportingPeriod {
   const calendar = monthBounds(month);
-  if (!cycle || !['calendar', 'custom'].includes(cycle.mode) || !Number.isInteger(cycle.day)
+  if (!cycle || !['calendar', 'custom', 'range'].includes(cycle.mode) || !Number.isInteger(cycle.day)
       || cycle.day < 1 || cycle.day > 31 || !['start', 'end'].includes(cycle.boundary)) throw new Error('账单周期设置无效');
+  if (cycle.mode === 'range' && (!Number.isInteger(cycle.startDay) || !Number.isInteger(cycle.endDay)
+      || cycle.startDay! < 1 || cycle.startDay! > 31 || cycle.endDay! < 1 || cycle.endDay! > 31)) throw new Error('账单周期设置无效');
   let { start, end } = calendar;
   if (cycle.mode === 'custom') {
     const before = dateAt(calendar.previous, cycle.day);
@@ -42,6 +44,9 @@ export function reportPeriod(month: string, cycle: BillingCycle = DEFAULT_BILLIN
       start = followingDate(before);
       end = current;
     }
+  } else if (cycle.mode === 'range') {
+    start = dateAt(calendar.previous, cycle.startDay!);
+    end = dateAt(month, cycle.endDay!);
   }
   const dates: string[] = [];
   for (let current = start; current <= end; current = followingDate(current)) {
@@ -60,7 +65,7 @@ export function billingMonthForDate(iso: string, cycle: BillingCycle = DEFAULT_B
   if (day < 1 || day > calendar.days) throw new Error('日期无效');
   const period = reportPeriod(month, cycle);
   if (iso >= period.start && iso <= period.end) return month;
-  // The custom period named for this calendar month ends at its anchor;
-  // dates after that anchor belong to the following labelled month.
+  // With overlapping periods, prefer the period ending in this month. In a
+  // gap, use the following labelled month even though the date is not in it.
   return followingDate(calendar.end).slice(0, 7);
 }
