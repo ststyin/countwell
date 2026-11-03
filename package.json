@@ -13,6 +13,7 @@
     "typecheck": "tsc -b",
     "cloud:build": "tsc -b && node scripts/build-cloud.mjs",
     "cloud:sync": "node --import tsx scripts/sync-cloud-ledger.ts",
+    "cloud:auto:install": "node --import tsx scripts/install-auto-sync.ts",
     "deploy": "npm run build && wrangler deploy",
     "deploy:check": "npm run build && wrangler deploy --dry-run"
   },
@@ -33,6 +34,7 @@
     "typescript": "~5.8.3",
     "vite": "^6.3.0",
     "vitest": "^3.2.0",
-    "wrangler": "^4.156.0"
+    "wrangler": "^4.156.0",
+    "yaml": "^2.9.1"
   }
 }
