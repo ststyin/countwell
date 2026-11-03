@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getAccounts, getOverview, getTransactions } from '../src/domain/reports';
+import { getAccounts, getOverview, getTransactions, summarizeInvestments } from '../src/domain/reports';
 import type { Ledger, LedgerAccount, LedgerTransaction, Posting } from '../src/domain/types';
 
 const accounts: LedgerAccount[] = [
@@ -106,6 +106,22 @@ describe('official normalized snapshots', () => {
     expect(report.positions).toHaveLength(1);
     expect(report.positions[0]).toMatchObject({ units: '3', cost: '75', costDate: '2026-09-20', costLabel: 'second', marketValue: '93', unrealizedPnl: '18' });
     expect(getOverview(snapshot, '2026-10')).toMatchObject({ income: '110', expense: '0', flowSupported: true });
+  });
+
+  it('summarizes each holding across lots without combining currencies or inventing missing prices', () => {
+    const first = { amount: '20', currency: 'CNY', date: '2026-09-01', label: 'A' };
+    const second = { amount: '25', currency: 'CNY', date: '2026-09-20', label: 'B' };
+    const snapshot = ledger([
+      transaction('2026-09-01', 'A', [posting('Assets:Broker', '2', 'STOCK', { cost: first }), posting('Assets:Bank', '-40')]),
+      transaction('2026-09-20', 'B', [posting('Assets:Broker', '3', 'STOCK', { cost: second }), posting('Assets:Bank', '-75')]),
+    ], { prices: [{ date: '2026-10-01', commodity: 'STOCK', amount: '30', currency: 'CNY' }, { date: '2026-10-01', commodity: 'STOCK', amount: '5', currency: 'USD' }] });
+    const report = getAccounts(snapshot, undefined, 'CNY');
+    const summary = summarizeInvestments(snapshot, report, 'CNY');
+    expect(summary.holdings).toHaveLength(1);
+    expect(summary.holdings[0]).toMatchObject({ commodity: 'STOCK', currency: 'CNY', marketValue: '150' });
+    expect(summary.holdings[0].lots.map(lot => lot.costLabel)).toEqual(['A', 'B']);
+    const missing = { ...report, positions: report.positions.filter(position => position.currency === 'CNY').map(position => ({ ...position, marketValue: null })) };
+    expect(summarizeInvestments(snapshot, missing, 'CNY').holdings[0].marketValue).toBeNull();
   });
 
   it('does not merge equal unit costs whose official booked lot dates or labels differ', () => {

@@ -230,3 +230,34 @@ export function getAccounts(ledger: Ledger, month?: string, currency = 'CNY', cy
   const signedLiabilities = sum(selected.filter(account => account.kind === 'liability').map(account => account.balance));
   return { month: month ?? '', currency, currencies: moneyCurrencies(ledger), cash: text(cash), otherAssets: text(otherAssets), investments: investments === null ? null : text(investments), liabilities: text(liabilities), overpayments: text(overpayments), netWorth: investments === null ? null : text(cash.plus(otherAssets).plus(investments).plus(signedLiabilities)), previousCash: text(previousCash), cashChange: text(cash.minus(previousCash)), accounts, positions, warnings: investments === null ? ['部分持仓缺少可用的同币种直接报价，暂不展示完整投资合计与净资产。'] : [] };
 }
+
+/** Identify monetary balances held in investment accounts without treating receivables as investments. */
+export function isInvestmentAccount(name: string): boolean {
+  const parts = name.split(':').slice(1).map(part => part.toLowerCase());
+  return parts.some(part => ['investment', 'investments', 'fund', 'funds', 'stock', 'stocks', 'bond', 'bonds'].includes(part))
+    && !parts.some(part => ['cash', 'bank', 'banks', 'deposit', 'deposits'].includes(part));
+}
+
+export function summarizeInvestments(ledger: Ledger, report: AccountReport, currency: string) {
+  const { sum } = arithmetic(ledger);
+  const monetaryAssets = report.accounts.filter(account => account.kind === 'asset' && account.role === 'other' && isInvestmentAccount(account.name));
+  const positionsByLot = new Map<string, InvestmentPosition>();
+  for (const position of report.positions) {
+    const key = JSON.stringify([position.account, position.commodity, position.unitCost, position.costCurrency, position.costDate, position.costLabel]);
+    const previous = positionsByLot.get(key);
+    if (!previous || (position.currency === currency && previous.currency !== currency)
+      || (previous.currency !== currency && position.currency === position.costCurrency && previous.currency !== previous.costCurrency)) positionsByLot.set(key, position);
+  }
+  const positions = [...positionsByLot.values()];
+  const groups = new Map<string, InvestmentPosition[]>();
+  for (const position of positions) {
+    const key = JSON.stringify([position.account, position.commodity, position.currency]);
+    groups.set(key, [...(groups.get(key) ?? []), position]);
+  }
+  const holdings = [...groups.values()].map(lots => ({
+    account: lots[0].account, accountLabel: lots[0].accountLabel, commodity: lots[0].commodity, currency: lots[0].currency,
+    marketValue: lots.some(lot => lot.marketValue === null) ? null : text(sum(lots.map(lot => lot.marketValue!))),
+    lots,
+  }));
+  return { monetaryAssets, holdings };
+}
