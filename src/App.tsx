@@ -102,7 +102,7 @@ export default function App() {
         : <SettingsPage ledger={ledger} theme={theme} onTheme={setTheme} hidden={hidden} onPrivacy={setHidden} onSource={openSource} controller={sourceController} />
 
   return <DisplayContext.Provider value={{ hidden, currency }}>
-    <div className="app-shell">
+    <div className={`app-shell${sourceOpen ? ' drawer-open' : ''}`}>
       <a className="skip-link" href="#page-main" onClick={event => { event.preventDefault(); document.getElementById('page-main')?.focus() }}>跳到主要内容</a>
       <aside className="sidebar">
         <a className="brand" href={routeHref('overview', route.month)} aria-label="Countwell 首页"><span className="brand-mark"><BrandIcon /></span></a>

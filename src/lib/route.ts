@@ -34,13 +34,16 @@ export function useRoute(defaultMonth = '2026-10') {
     window.addEventListener('hashchange', update)
     return () => window.removeEventListener('hashchange', update)
   }, [defaultMonth])
+  useEffect(() => {
+    document.getElementById('page-main')?.scrollTo({ top: 0 })
+    window.scrollTo({ top: 0 })
+  }, [route.page])
   const navigate = (patch: Partial<Route>, replace = false) => {
     const next = { ...route, ...patch }
     const hash = routeHref(next.page, next.month, next)
     if (replace) window.history.replaceState(null, '', hash)
     else if (window.location.hash !== hash) window.history.pushState(null, '', hash)
     setRoute(next)
-    if (patch.page && patch.page !== route.page) window.scrollTo({ top: 0 })
   }
   return { route, navigate }
 }
