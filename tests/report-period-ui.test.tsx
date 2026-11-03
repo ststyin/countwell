@@ -55,6 +55,23 @@ describe('report period presentation', () => {
     expect(html).not.toContain('截至月末')
   })
 
+  it('shows a monetary fund balance under other assets, not cash', () => {
+    const fund = parseDemoLedger(`
+2026-01-01 open Assets:Bank
+2026-01-01 open Assets:Investment:Fund:Example
+2026-01-01 open Equity:Opening
+2026-10-01 * "Opening"
+  Assets:Bank 100 CNY
+  Assets:Investment:Fund:Example 50 CNY
+  Equity:Opening -150 CNY
+`)
+    const html = renderToStaticMarkup(<AccountsPage ledger={fund} currency="CNY" onAccount={() => {}} />)
+    const cashSection = html.slice(html.indexOf('class="panel account-list-panel"'), html.indexOf('其他资产'))
+    expect(cashSection).not.toContain('Example')
+    expect(html.slice(html.indexOf('其他资产'))).toContain('Example')
+    expect(html).toContain('150.00')
+  })
+
   it('retains all-time account drilldown in shareable routes and can switch back to a period', () => {
     const all = routeHref('transactions', '2026-11', { account: 'Assets:Bank', allTime: true })
     expect(parseRoute(all)).toMatchObject({ page: 'transactions', month: '2026-11', account: 'Assets:Bank', allTime: true })

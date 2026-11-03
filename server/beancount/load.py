@@ -135,6 +135,9 @@ def main(request):
              roots["expenses"]: "expense", roots["equity"]: "equity"}
     investment_accounts = {p.account for item in entries if isinstance(item, data.Transaction)
                            for p in item.postings if p.cost is not None}
+    noncash_components = {"investment", "investments", "fund", "funds", "stock", "stocks", "bond", "bonds",
+                          "receivable", "receivables", "loan", "loans", "other", "otherassets"}
+    cash_components = {"cash", "bank", "banks", "deposit", "deposits"}
     accounts = []
     for item in entries:
         if not isinstance(item, data.Open):
@@ -142,7 +145,10 @@ def main(request):
         kind = kinds.get(item.account.split(":", 1)[0], "asset")
         role = item.meta.get("countwell_role")
         if role not in ("cash", "investment", "other"):
-            role = "investment" if item.account in investment_accounts else "cash" if kind == "asset" else "other"
+            parts = {part.lower() for part in item.account.split(":")[1:]}
+            role = ("investment" if item.account in investment_accounts else
+                    "other" if kind == "asset" and parts & noncash_components and not parts & cash_components else
+                    "cash" if kind == "asset" else "other")
         label = item.meta.get("display_name") or item.meta.get("name") or item.account.split(":")[-1]
         accounts.append({"name": item.account, "label": label if isinstance(label, str) else item.account,
                          "kind": kind, "role": role})

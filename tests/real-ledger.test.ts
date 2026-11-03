@@ -70,6 +70,11 @@ describe('official normalized snapshots', () => {
     expect(getAccounts(snapshot, '2026-10')).toMatchObject({ cash: '100', otherAssets: '50', netWorth: '150' });
   });
 
+  it('keeps a currency-only investment account out of cash without losing its value', () => {
+    const snapshot = ledger([transaction('2026-10-01', '投资余额', [posting('Assets:Broker', '50'), posting('Assets:Bank', '100'), posting('Equity:Opening', '-150')])]);
+    expect(getAccounts(snapshot, '2026-10')).toMatchObject({ cash: '100', otherAssets: '50', netWorth: '150' });
+  });
+
   it('does not call borrowing an income or a credit-card repayment', () => {
     const snapshot = ledger([transaction('2026-10-01', '借款入账', [posting('Assets:Bank', '100'), posting('Liabilities:Card', '-100')])]);
     expect(getTransactions(snapshot, { month: '2026-10' })[0]).toMatchObject({ kind: 'transfer', category: '借款或负债增加', fromAccount: 'Liabilities:Card', toAccount: 'Assets:Bank' });

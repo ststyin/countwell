@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { loadOfficialLedger, OfficialLedgerError } from '../server/engine'
+import { getAccounts } from '../src/domain/reports'
 
 const pythonPath = process.env.COUNTWELL_PYTHON
   ?? (existsSync(resolve('.venv/bin/python')) ? resolve('.venv/bin/python') : 'python3')
@@ -31,6 +32,31 @@ const accounts = `
 `
 
 describe('official Beancount engine bridge', () => {
+  it('keeps currency-valued fund accounts out of cash without losing their balance from net worth', async () => {
+    const root = await tree({ 'main.bean': `
+2000-01-01 open Assets:Bank
+2000-01-01 open Assets:Investment:Fund:Example CNY
+2000-01-01 open Assets:Investment:Broker:Cash CNY
+2000-01-01 open Assets:Receivable:Example CNY
+2000-01-01 open Assets:Investment:Fund:ExplicitCash CNY
+  countwell_role: "cash"
+2000-01-01 open Equity:Opening
+2026-10-01 * "Opening"
+  Assets:Bank 100 CNY
+  Assets:Investment:Fund:Example 50 CNY
+  Assets:Investment:Broker:Cash 20 CNY
+  Assets:Receivable:Example 30 CNY
+  Assets:Investment:Fund:ExplicitCash 10 CNY
+  Equity:Opening -210 CNY
+` })
+    const ledger = await loadOfficialLedger(join(root, 'main.bean'), { pythonPath })
+    const report = getAccounts(ledger, undefined, 'CNY')
+    expect(report.accounts.find(account => account.name === 'Assets:Investment:Fund:Example')?.role).toBe('other')
+    expect(report.accounts.find(account => account.name === 'Assets:Investment:Broker:Cash')?.role).toBe('cash')
+    expect(report.accounts.find(account => account.name === 'Assets:Investment:Fund:ExplicitCash')?.role).toBe('cash')
+    expect(report.accounts.find(account => account.name === 'Assets:Receivable:Example')?.role).toBe('other')
+    expect(report).toMatchObject({ cash: '130', otherAssets: '80', netWorth: '210' })
+  })
   it('loads nested, sibling and glob includes with official amount interpolation', async () => {
     const root = await tree({
       'ledger/main.beancount': 'option "title" "Real fixture"\ninclude "../accounts/*.bean"\ninclude "../years/2026/index.bean"\n',

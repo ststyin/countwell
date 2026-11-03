@@ -198,9 +198,10 @@ export function getAccounts(ledger: Ledger, month?: string, currency = 'CNY', cy
       }
     }
   }
+  const accountsWithHoldings = new Set([...lots.values()].map(lot => lot.account));
   const accounts: AccountBalance[] = [...balances.values()].map(balance => {
     const account = ledger.accounts.find(item => item.name === balance.account);
-    const role: AccountBalance['role'] = investmentUnits.has(balance.currency) ? 'investment' : account?.role === 'investment' ? 'cash' : account?.role ?? 'cash';
+    const role: AccountBalance['role'] = investmentUnits.has(balance.currency) ? 'investment' : account?.role === 'investment' ? (accountsWithHoldings.has(balance.account) ? 'cash' : 'other') : account?.role ?? 'cash';
     return { name: balance.account, label: label(ledger, balance.account), kind: accountKind(ledger, balance.account) as 'asset' | 'liability', role, balance: text(balance.closing), opening: text(balance.opening), change: text(balance.closing.minus(balance.opening)), currency: balance.currency };
   }).sort((a, b) => a.name.localeCompare(b.name) || a.currency.localeCompare(b.currency));
   const positions: InvestmentPosition[] = [];
