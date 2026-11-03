@@ -23,6 +23,7 @@ interface SyncOptions {
   repository?: string
   entryPath?: string
   ref?: string
+  expectedOwnerId?: string
   deploy?: boolean
 }
 
@@ -110,6 +111,10 @@ async function atomicPrivateWrite(path: string, data: string | Buffer): Promise<
 
 /** Private preparation happens locally; only the explicit --deploy path publishes. */
 export async function syncCloudLedger(options: SyncOptions = {}, dependencies: SyncDependencies = {}): Promise<SyncResult> {
+  const expectedOwnerId = options.expectedOwnerId
+  if (expectedOwnerId !== undefined && (typeof expectedOwnerId !== 'string' || !/^[1-9][0-9]*$/.test(expectedOwnerId))) {
+    throw new SyncError('预期 GitHub 所有者 ID 必须是正整数字符串。')
+  }
   const project = resolve(dependencies.projectDirectory ?? process.cwd())
   const execute = dependencies.runCommand ?? runCommand
   const load = dependencies.load ?? loadOfficialLedger
@@ -135,6 +140,9 @@ export async function syncCloudLedger(options: SyncOptions = {}, dependencies: S
     ref: options.ref ?? saved.ref,
     allowedUserId: saved.allowedUserId,
   })
+  if (expectedOwnerId && source.allowedUserId && source.allowedUserId !== expectedOwnerId) {
+    throw new SyncError('预期 GitHub 所有者与已保存的登录账号不一致，已停止同步。')
+  }
 
   let metadata: { full_name?: string; default_branch?: string; owner?: { id?: number; type?: string } }
   try {
@@ -148,6 +156,9 @@ export async function syncCloudLedger(options: SyncOptions = {}, dependencies: S
     throw new SyncError('仓库已重命名或转移，请使用当前 owner/repository 重新配置。')
   }
   const allowedUserId = String(metadata.owner.id)
+  if (expectedOwnerId && allowedUserId !== expectedOwnerId) {
+    throw new SyncError('仓库所有者与预期 GitHub 账号不一致，已停止同步。')
+  }
   if (source.allowedUserId && source.allowedUserId !== allowedUserId) {
     throw new SyncError('仓库所有者与已配置的登录账号不一致，已停止同步。')
   }
@@ -210,13 +221,13 @@ export async function syncCloudLedger(options: SyncOptions = {}, dependencies: S
 }
 
 async function main() {
-  const { values } = parseArgs({ options: { repository: { type: 'string' }, entry: { type: 'string' }, ref: { type: 'string' }, deploy: { type: 'boolean' }, help: { type: 'boolean' } }, strict: true, allowPositionals: false })
+  const { values } = parseArgs({ options: { repository: { type: 'string' }, entry: { type: 'string' }, ref: { type: 'string' }, 'expected-owner-id': { type: 'string' }, deploy: { type: 'boolean' }, help: { type: 'boolean' } }, strict: true, allowPositionals: false })
   if (values.help) {
-    console.log('用法：npm run cloud:sync -- --repository owner/repository --entry main.beancount [--ref branch-or-tag-or-commit] [--deploy]')
+    console.log('用法：npm run cloud:sync -- --repository owner/repository --entry main.beancount [--ref branch-or-tag-or-commit] [--expected-owner-id id] [--deploy]')
     console.log('未填写的来源选项沿用 .countwell/cloud/source.json；默认只在本机生成私有快照。')
     return
   }
-  const result = await syncCloudLedger({ repository: values.repository, entryPath: values.entry, ref: values.ref, deploy: values.deploy }, { log: message => console.log(message) })
+  const result = await syncCloudLedger({ repository: values.repository, entryPath: values.entry, ref: values.ref, expectedOwnerId: values['expected-owner-id'], deploy: values.deploy }, { log: message => console.log(message) })
   console.log(`官方校验通过：${result.fileCount} 个文件，${result.transactionCount} 笔交易，提交 ${result.revision.slice(0, 12)}。`)
   console.log(result.url ? `已发布：${result.url}` : '私有快照已准备好。需要发布时添加 --deploy。')
 }

@@ -80,6 +80,69 @@ describe('private cloud ledger synchronization', () => {
     expect(runner.calls.some(call => /^npm|^npx/.test(call.command))).toBe(false)
   })
 
+  it('pins the expected owner on a fresh CI workspace before preparing a snapshot', async () => {
+    const root = await project()
+    const runner = commands()
+    const result = await syncCloudLedger({ repository: 'fictional/ledger', entryPath: 'books/main.beancount', expectedOwnerId: '42' }, {
+      projectDirectory: root, runCommand: runner.execute, load: async () => ledger,
+    })
+    const config = JSON.parse(await readFile(join(root, '.countwell/cloud/source.json'), 'utf8'))
+    expect(config.allowedUserId).toBe('42')
+    expect(JSON.parse(await readFile(result.snapshotPath, 'utf8')).status.connected).toBe(true)
+  })
+
+  it('rejects a different actual owner before cloning, loading, or creating CI outputs', async () => {
+    const root = await project()
+    const runner = commands({ wrongOwner: true })
+    let loadCalls = 0
+    await expect(syncCloudLedger({ repository: 'fictional/ledger', entryPath: 'books/main.beancount', expectedOwnerId: '42' }, {
+      projectDirectory: root, runCommand: runner.execute, load: async () => { loadCalls++; return ledger },
+    })).rejects.toThrow('仓库所有者与预期 GitHub 账号不一致')
+    expect(runner.calls).toHaveLength(1)
+    expect(runner.clones).toHaveLength(0)
+    expect(loadCalls).toBe(0)
+    await expect(readFile(join(root, '.countwell/cloud/ledger.snapshot.txt'))).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(readFile(join(root, '.countwell/cloud/source.json'))).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('preserves existing outputs and refuses an expected owner conflicting with saved identity', async () => {
+    const root = await project()
+    const directory = join(root, '.countwell/cloud')
+    await mkdir(directory, { recursive: true })
+    const configText = JSON.stringify({ repository: 'fictional/ledger', entryPath: 'books/main.beancount', ref: 'main', allowedUserId: '42' })
+    await writeFile(join(directory, 'source.json'), configText)
+    await writeFile(join(directory, 'ledger.snapshot.txt'), 'previous valid snapshot')
+    const runner = commands()
+    let loadCalls = 0
+    await expect(syncCloudLedger({ expectedOwnerId: '43' }, {
+      projectDirectory: root, runCommand: runner.execute, load: async () => { loadCalls++; return ledger },
+    })).rejects.toThrow('预期 GitHub 所有者与已保存的登录账号不一致')
+    expect(runner.calls).toHaveLength(0)
+    expect(loadCalls).toBe(0)
+    expect(await readFile(join(directory, 'source.json'), 'utf8')).toBe(configText)
+    expect(await readFile(join(directory, 'ledger.snapshot.txt'), 'utf8')).toBe('previous valid snapshot')
+  })
+
+  it('rejects invalid expected owner IDs without accessing GitHub or changing existing outputs', async () => {
+    const root = await project()
+    const directory = join(root, '.countwell/cloud')
+    await mkdir(directory, { recursive: true })
+    const configText = JSON.stringify({ repository: 'fictional/ledger', entryPath: 'books/main.beancount', ref: 'main', allowedUserId: '42' })
+    await writeFile(join(directory, 'source.json'), configText)
+    await writeFile(join(directory, 'ledger.snapshot.txt'), 'previous valid snapshot')
+    const runner = commands()
+    let loadCalls = 0
+    for (const expectedOwnerId of ['', '0', '-1', '01', '42.0', '4e1', ' 42 ', 'other', 42 as unknown as string]) {
+      await expect(syncCloudLedger({ expectedOwnerId }, {
+        projectDirectory: root, runCommand: runner.execute, load: async () => { loadCalls++; return ledger },
+      })).rejects.toThrow('预期 GitHub 所有者 ID 必须是正整数字符串')
+    }
+    expect(runner.calls).toHaveLength(0)
+    expect(loadCalls).toBe(0)
+    expect(await readFile(join(directory, 'source.json'), 'utf8')).toBe(configText)
+    expect(await readFile(join(directory, 'ledger.snapshot.txt'), 'utf8')).toBe('previous valid snapshot')
+  })
+
   it('does not overwrite the prior snapshot or configuration when official validation fails', async () => {
     const root = await project()
     const directory = join(root, '.countwell/cloud')
