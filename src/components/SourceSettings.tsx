@@ -27,16 +27,14 @@ function CloudSourceSettings({ controller }: { controller: LedgerSourceControlle
   }
 
   return <section className="panel settings-section source-settings" id="data-source">
-    <div className="section-heading"><h2>账本数据源</h2><Github size={21} className="settings-heading-icon" /></div>
+    <div className="section-heading"><h2>账本来源</h2><Github size={21} className="settings-heading-icon" /></div>
     {status?.connected ? <dl className="cloud-source-details">
       <div><dt>GitHub</dt><dd>{status.source?.repository ? <a href={`https://github.com/${status.source.repository}`} target="_blank" rel="noreferrer">{status.source.repository}</a> : '已连接'}</dd></div>
-      <div><dt>入口</dt><dd>{status.source?.entryPath}</dd></div>
-      <div><dt>账本</dt><dd>{status.fileCount} 个文件 · {status.transactionCount} 笔交易</dd></div>
-      {status.loadedAt && <div><dt>读取于</dt><dd><time dateTime={status.loadedAt}>{new Date(status.loadedAt).toLocaleString('zh-CN')}</time></dd></div>}
-      {status.revision && <div><dt>版本</dt><dd>同步于 {status.revision.slice(0, 12)}</dd></div>}
+      {status.loadedAt && <div><dt>同步</dt><dd><time dateTime={status.loadedAt}>{new Date(status.loadedAt).toLocaleString('zh-CN')}</time></dd></div>}
     </dl> : <p className="cloud-source-pending" role="status">{controller.backendAvailable === null ? '正在读取账本…' : '账本暂不可用'}</p>}
     <div className="setting-actions"><button className="button" disabled={busy || loggingOut} onClick={() => void reload()}>{busy ? <LoaderCircle size={16} className="spin" /> : <RefreshCw size={16} />}刷新账本</button><button className="button" disabled={loggingOut} onClick={() => void logout()}><LogOut size={16} />{loggingOut ? '正在退出…' : '退出登录'}</button></div>
     {(error || logoutError) && <div className="source-error" role="alert">{logoutError || error?.message}</div>}
+    {status?.connected && <details className="disclosure"><summary>同步详情</summary><div className="disclosure-content"><dl className="cloud-source-details"><div><dt>入口</dt><dd>{status.source?.entryPath}</dd></div><div><dt>账本</dt><dd>{status.fileCount} 个文件 · {status.transactionCount} 笔交易</dd></div>{status.revision && <div><dt>提交</dt><dd>{status.revision.slice(0, 12)}</dd></div>}</dl></div></details>}
   </section>
 }
 
@@ -73,8 +71,8 @@ function LocalSourceSettings({ controller }: { controller: LedgerSourceControlle
   }
 
   return <section className="panel settings-section source-settings" id="data-source">
-    <div className="section-heading"><h2>账本数据源</h2><FolderOpen size={21} className="settings-heading-icon" /></div>
-    {backendAvailable === false && <div className="source-notice"><strong>未连接账本服务</strong><details className="disclosure"><summary>连接帮助</summary><div className="disclosure-content"><p>在项目目录运行 <code>npm run dev</code>，或 <code>npm run build &amp;&amp; npm start</code>。</p><p>静态部署无法读取电脑上的文件。</p></div></details></div>}
+    <div className="section-heading"><h2>账本来源</h2><FolderOpen size={21} className="settings-heading-icon" /></div>
+    {backendAvailable === false && <div className="source-notice"><strong>未连接账本服务</strong><details className="disclosure"><summary>连接帮助</summary><div className="disclosure-content"><p>在项目目录运行 <code>npm run dev</code>，或 <code>npm run build &amp;&amp; npm start</code>。</p></div></details></div>}
     {status?.connected && <div className="source-connected"><Check size={18} /><div><strong>已连接</strong><p>{status.source?.type === 'local' ? '本地' : status.source?.type === 'github' ? 'GitHub' : 'WebDAV'} · {status.source?.entryPath}</p></div></div>}
     <div className="segmented source-tabs" aria-label="账本数据源类型">{([{ value: 'local', label: '本地目录', icon: FolderOpen }, { value: 'github', label: 'GitHub', icon: Github }, { value: 'webdav', label: 'WebDAV', icon: Cloud }] as const).map(item => <button key={item.value} type="button" aria-pressed={type === item.value} disabled={busy} onClick={() => { if (type === item.value) return; setType(item.value); setEntryPath(''); setToken(''); setPassword('') }}><item.icon size={16} />{item.label}</button>)}</div>
     <form className="source-form" onSubmit={event => void submit(event)}>
@@ -84,7 +82,7 @@ function LocalSourceSettings({ controller }: { controller: LedgerSourceControlle
       {type === 'webdav' && <><label>用户名（可选）<input value={username} onChange={e => setUsername(e.target.value)} autoComplete="off" /></label><label>密码（可选）<input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" /></label></>}
       {type !== 'local' && <label className="source-wide">{type === 'github' ? 'Token（私有仓库必填）' : 'Bearer Token（与密码二选一）'}<input type="password" value={token} onChange={e => setToken(e.target.value)} placeholder={hasCredentials ? '已保存凭证' : type === 'github' ? '公开仓库可留空' : '可选'} autoComplete="new-password" /></label>}
       {hasCredentials && <label className="source-check source-wide"><input type="checkbox" checked={reuse} onChange={e => setReuse(e.target.checked)} /><span>沿用已保存的凭证</span></label>}
-      <details className="disclosure source-wide"><summary>高级选项{allowPlugins ? ' · 已允许插件' : ''}</summary><div className="disclosure-content"><label className="source-check plugin-trust"><input type="checkbox" checked={allowPlugins} onChange={e => setAllowPlugins(e.target.checked)} /><span>允许可信的 Python 插件<small>插件可读写本机文件或联网，仅为可信账本开启。</small></span></label>{status?.connected && <div className="source-hint"><p>{status.fileCount} 个文件 · {status.transactionCount} 笔交易 · Beancount {status.engineVersion ?? '3'}</p><p>{status.loadedAt ? `读取于 ${new Date(status.loadedAt).toLocaleString('zh-CN')}` : ''}{status.revision ? ` · ${status.revision.slice(0, 12)}` : ''}</p></div>}<p className="source-hint">凭证仅保存在本机，账本不会写入浏览器缓存。</p></div></details>
+      <details className="disclosure source-wide"><summary>高级选项{allowPlugins ? ' · 已允许插件' : ''}</summary><div className="disclosure-content"><label className="source-check plugin-trust"><input type="checkbox" checked={allowPlugins} onChange={e => setAllowPlugins(e.target.checked)} /><span>允许可信的 Python 插件<small>插件可读写本机文件或联网，仅为可信账本开启。</small></span></label>{status?.connected && <div className="source-hint"><p>{status.fileCount} 个文件 · {status.transactionCount} 笔交易 · Beancount {status.engineVersion ?? '3'}</p><p>{status.loadedAt ? `读取于 ${new Date(status.loadedAt).toLocaleString('zh-CN')}` : ''}{status.revision ? ` · ${status.revision.slice(0, 12)}` : ''}</p></div>}</div></details>
       <div className="setting-actions source-wide"><button className="button button-primary" disabled={busy || backendAvailable !== true} type="submit">{busy ? <LoaderCircle size={16} className="spin" /> : <Check size={16} />}{busy ? '校验中…' : '连接账本'}</button>{status?.configured && <button className="button" disabled={busy || !backendAvailable} type="button" onClick={() => void reload()}><RefreshCw size={15} />重新读取</button>}<button className="button" disabled={busy} type="button" onClick={() => void useDemo()}><Unplug size={15} />使用演示账本</button></div>
     </form>
     {error && <div className="source-error" role="alert"><strong>账本加载失败</strong><p>{error.message}</p>{status?.connected && <p>仍显示上次成功读取的数据。</p>}{error.diagnostics?.length ? <ul>{error.diagnostics.map((diagnostic, index) => <li key={index}>{diagnostic.file}{diagnostic.line ? `:${diagnostic.line}` : ''} {diagnostic.message}</li>)}</ul> : null}</div>}
