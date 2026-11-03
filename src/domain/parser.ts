@@ -94,7 +94,7 @@ export function parseDemoLedger(source: string, defaultMonth = '2026-10'): Ledge
       if (!kind || knownAccounts.has(opening[2])) throw new DemoLedgerError('账户根名称无效或重复声明', lineNumber);
       const parts = opening[2].split(':').slice(1).map(part => part.toLowerCase());
       const noncash = ['investment', 'investments', 'fund', 'funds', 'stock', 'stocks', 'bond', 'bonds', 'receivable', 'receivables', 'loan', 'loans', 'other', 'otherassets'];
-      const cash = ['cash', 'bank', 'banks', 'deposit', 'deposits'];
+      const cash = ['cash', 'bank', 'banks', 'debit', 'deposit', 'deposits'];
       const role = kind === 'asset' && (!parts.some(part => noncash.includes(part)) || parts.some(part => cash.includes(part))) ? 'cash' : 'other';
       openedAccount = {name:opening[2],label:opening[2].split(':').at(-1)!,kind,role};
       knownAccounts.set(openedAccount.name, openedAccount);

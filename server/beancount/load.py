@@ -137,7 +137,7 @@ def main(request):
                            for p in item.postings if p.cost is not None}
     noncash_components = {"investment", "investments", "fund", "funds", "stock", "stocks", "bond", "bonds",
                           "receivable", "receivables", "loan", "loans", "other", "otherassets"}
-    cash_components = {"cash", "bank", "banks", "deposit", "deposits"}
+    cash_components = {"cash", "bank", "banks", "debit", "deposit", "deposits"}
     accounts = []
     for item in entries:
         if not isinstance(item, data.Open):

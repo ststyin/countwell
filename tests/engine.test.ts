@@ -37,6 +37,7 @@ describe('official Beancount engine bridge', () => {
 2000-01-01 open Assets:Bank
 2000-01-01 open Assets:Investment:Fund:Example CNY
 2000-01-01 open Assets:Investment:Broker:Cash CNY
+2000-01-01 open Assets:Investment:Broker:Debit CNY
 2000-01-01 open Assets:Receivable:Example CNY
 2000-01-01 open Assets:Investment:Fund:ExplicitCash CNY
   countwell_role: "cash"
@@ -53,6 +54,7 @@ describe('official Beancount engine bridge', () => {
     const report = getAccounts(ledger, undefined, 'CNY')
     expect(report.accounts.find(account => account.name === 'Assets:Investment:Fund:Example')?.role).toBe('other')
     expect(report.accounts.find(account => account.name === 'Assets:Investment:Broker:Cash')?.role).toBe('cash')
+    expect(ledger.accounts.find(account => account.name === 'Assets:Investment:Broker:Debit')?.role).toBe('cash')
     expect(report.accounts.find(account => account.name === 'Assets:Investment:Fund:ExplicitCash')?.role).toBe('cash')
     expect(report.accounts.find(account => account.name === 'Assets:Receivable:Example')?.role).toBe('other')
     expect(report).toMatchObject({ cash: '130', otherAssets: '80', netWorth: '210' })

@@ -235,7 +235,7 @@ export function getAccounts(ledger: Ledger, month?: string, currency = 'CNY', cy
 export function isInvestmentAccount(name: string): boolean {
   const parts = name.split(':').slice(1).map(part => part.toLowerCase());
   return parts.some(part => ['investment', 'investments', 'fund', 'funds', 'stock', 'stocks', 'bond', 'bonds'].includes(part))
-    && !parts.some(part => ['cash', 'bank', 'banks', 'deposit', 'deposits'].includes(part));
+    && !parts.some(part => ['cash', 'bank', 'banks', 'debit', 'deposit', 'deposits'].includes(part));
 }
 
 export function summarizeInvestments(ledger: Ledger, report: AccountReport, currency: string) {
