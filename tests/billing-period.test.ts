@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 import { billingMonthForDate, getAccounts, getOverview, getTransactions, monthBounds, parseDemoLedger, reportPeriod } from '../src/domain';
-import { billingCycleForStartDay, normalizeBillingCycle } from '../src/domain/period';
+import { billingCycleForDays, billingCycleForStartDay, normalizeBillingCycle } from '../src/domain/period';
 import type { BillingCycle } from '../src/domain';
 
 const custom = (day: number, boundary: BillingCycle['boundary'] = 'start'): BillingCycle => ({ mode: 'custom', day, boundary });
@@ -18,6 +18,15 @@ const preamble = `
 const fixture = (body: string) => parseDemoLedger(preamble + body);
 
 describe('recurring reporting periods', () => {
+  it('uses independently selected inclusive starts and exclusive ends, with 1–1 as a calendar month', () => {
+    expect(reportPeriod('2026-11', billingCycleForDays(1, 1))).toMatchObject({ start: '2026-11-01', end: '2026-11-30' });
+    expect(reportPeriod('2026-11', billingCycleForDays(25, 25))).toMatchObject({ start: '2026-10-25', end: '2026-11-24' });
+    expect(reportPeriod('2026-11', billingCycleForDays(20, 25))).toMatchObject({ start: '2026-10-20', end: '2026-11-24' });
+    expect(reportPeriod('2026-11', billingCycleForDays(28, 20))).toMatchObject({ start: '2026-10-28', end: '2026-11-19' });
+    expect(reportPeriod('2024-03', billingCycleForDays(31, 30))).toMatchObject({ start: '2024-02-29', end: '2024-03-29' });
+    expect(reportPeriod('2026-01', billingCycleForDays(25, 10))).toMatchObject({ start: '2025-12-25', end: '2026-01-09' });
+    for (const day of [0, 32, 1.5]) expect(() => billingCycleForDays(day, 25)).toThrow('账单周期');
+  });
   it('maps a 25th closing day to the 26th start without changing the selected dates', () => {
     const legacy = custom(25, 'end');
     const migrated = normalizeBillingCycle(legacy);
@@ -169,6 +178,13 @@ describe('billing-period financial reports', () => {
     const overview = getOverview(ledger, '2026-11', 'CNY', cycle);
     expect(overview).toMatchObject({ income: '100', expense: '37', transactionCount: 3 });
     expect(getTransactions(ledger, { month: '2026-11', currency: 'CNY', cycle }).map(transaction => transaction.narration)).toEqual(['Next start', 'Refund', 'Salary']);
+  });
+
+  it('excludes the selected end day consistently from totals and details', () => {
+    const cycle = billingCycleForDays(26, 25);
+    const overview = getOverview(ledger, '2026-11', 'CNY', cycle);
+    expect(overview).toMatchObject({ income: '100', expense: '-3', transactionCount: 2 });
+    expect(getTransactions(ledger, { month: '2026-11', currency: 'CNY', cycle }).map(transaction => transaction.narration)).toEqual(['Refund', 'Salary']);
   });
 
   it('uses an inclusive end anchor consistently, without duplicating its transactions next period', () => {

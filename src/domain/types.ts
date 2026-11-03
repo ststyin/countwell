@@ -4,7 +4,7 @@ export type TransactionKind = 'income' | 'expense' | 'refund' | 'transfer' | 'in
 
 /** Custom cycles are named for the month containing their ending anchor. */
 export interface BillingCycle {
-  mode: 'calendar' | 'custom' | 'range';
+  mode: 'calendar' | 'custom' | 'range' | 'window';
   day: number;
   boundary: 'start' | 'end';
   startDay?: number;

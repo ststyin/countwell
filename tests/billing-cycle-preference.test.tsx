@@ -59,11 +59,26 @@ describe('billing-cycle preference', () => {
     expect(restored.getBillingCycle()).toEqual({ mode: 'calendar', day: 1, boundary: 'start' })
   })
 
-  it('converts old end-day and independent-range preferences to a start day', async () => {
+  it('saves both independently selected days and restores them after reload', async () => {
+    const browser = browserFixture()
+    const preference = await import('../src/hooks/useBillingCycle')
+    const selected = { mode: 'window', day: 20, boundary: 'start', startDay: 20, endDay: 25 } as const
+    preference.setBillingCycle(selected)
+    expect(JSON.parse(browser.values.get(key)!)).toEqual(selected)
+    vi.resetModules()
+    expect((await import('../src/hooks/useBillingCycle')).getBillingCycle()).toEqual(selected)
+    const html = renderToStaticMarkup(<BillingCycleSettings month="2026-11" cycle={selected} onChange={() => {}} />)
+    expect(html).toContain('2026-10-20')
+    expect(html).toContain('2026-11-24')
+    expect(html).toContain('相邻周期可能重叠')
+  })
+
+  it('converts old end-day preferences and retains old independent ranges', async () => {
     for (const [saved, expected] of [
       [{ mode: 'custom', day: 25, boundary: 'end' }, { mode: 'custom', day: 26, boundary: 'start' }],
       [{ mode: 'custom', day: 31, boundary: 'end' }, { mode: 'calendar', day: 1, boundary: 'start' }],
-      [{ mode: 'range', day: 1, boundary: 'start', startDay: 20, endDay: 25 }, { mode: 'custom', day: 20, boundary: 'start' }],
+      [{ mode: 'range', day: 1, boundary: 'start', startDay: 20, endDay: 25 }, { mode: 'range', day: 1, boundary: 'start', startDay: 20, endDay: 25 }],
+      [{ mode: 'window', day: 20, boundary: 'start', startDay: 20, endDay: 25 }, { mode: 'window', day: 20, boundary: 'start', startDay: 20, endDay: 25 }],
     ] as const) {
       vi.resetModules()
       browserFixture({ saved: JSON.stringify(saved) })
@@ -115,10 +130,10 @@ describe('billing-cycle preference', () => {
     expect(preference.getBillingCycle()).toEqual({ mode: 'calendar', day: 1, boundary: 'start' })
   })
 
-  it('shows one start-day control with a calendar-month default and an accurate preview', () => {
+  it('shows independent day controls, a calendar-month default and an accurate preview', () => {
     const calendar = renderToStaticMarkup(<BillingCycleSettings month="2026-11" cycle={{ mode: 'calendar', day: 1, boundary: 'start' }} onChange={() => {}} />)
-    expect(calendar.match(/<select\b/g)).toHaveLength(1)
-    expect(calendar).toContain('1 日（自然月）')
+    expect(calendar.match(/<select\b/g)).toHaveLength(2)
+    expect(calendar).toContain('结束日不计入本期')
     expect(calendar).toContain('2026-11-01')
     expect(calendar).toContain('2026-11-30')
     const start = renderToStaticMarkup(<BillingCycleSettings month="2026-11" cycle={{ mode: 'custom', day: 25, boundary: 'start' }} onChange={() => {}} />)
@@ -131,23 +146,21 @@ describe('billing-cycle preference', () => {
     expect(shortMonth).toContain('短月取月末')
   })
 
-  it('selecting a day applies a custom cycle and selecting day one restores calendar months', () => {
+  it('changes each day independently and keeps the other selection', () => {
     const changed = vi.fn()
     const tree = BillingCycleSettings({ month: '2026-11', cycle: { mode: 'calendar', day: 1, boundary: 'start' }, onChange: changed })
-    function selectIn(node: unknown): ReactElement<{ children?: unknown; onChange?: (event: unknown) => void }> | undefined {
-      if (!isValidElement<{ children?: unknown; onChange?: (event: unknown) => void }>(node)) return undefined
-      if (node.type === 'select') return node
-      for (const child of Children.toArray(node.props.children as never)) {
-        const match = selectIn(child)
-        if (match) return match
-      }
-      return undefined
+    function selectsIn(node: unknown): ReactElement<{ children?: unknown; onChange?: (event: unknown) => void }>[] {
+      if (!isValidElement<{ children?: unknown; onChange?: (event: unknown) => void }>(node)) return []
+      if (node.type === 'select') return [node]
+      return Children.toArray(node.props.children as never).flatMap(selectsIn)
     }
-    const select = selectIn(tree)
-    expect(select).toBeDefined()
-    select!.props.onChange!({ target: { value: '25' } })
-    expect(changed).toHaveBeenLastCalledWith({ mode: 'custom', day: 25, boundary: 'start' })
-    select!.props.onChange!({ target: { value: '1' } })
+    const selects = selectsIn(tree)
+    expect(selects).toHaveLength(2)
+    selects[0].props.onChange!({ target: { value: '25' } })
+    expect(changed).toHaveBeenLastCalledWith({ mode: 'window', day: 25, boundary: 'start', startDay: 25, endDay: 1 })
+    selects[1].props.onChange!({ target: { value: '25' } })
+    expect(changed).toHaveBeenLastCalledWith({ mode: 'window', day: 1, boundary: 'start', startDay: 1, endDay: 25 })
+    selects[1].props.onChange!({ target: { value: '1' } })
     expect(changed).toHaveBeenLastCalledWith({ mode: 'calendar', day: 1, boundary: 'start' })
   })
 })

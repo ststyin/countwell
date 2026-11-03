@@ -8,10 +8,17 @@ export function billingCycleForStartDay(day: number): BillingCycle {
   return day === 1 ? { ...DEFAULT_BILLING_CYCLE } : { mode: 'custom', day, boundary: 'start' };
 }
 
-/** Convert previously saved end-day and independent-range preferences to a start day. */
+/** Independent start and exclusive end anchors; matching days retain continuous cycles. */
+export function billingCycleForDays(startDay: number, endDay: number): BillingCycle {
+  for (const day of [startDay, endDay]) if (!Number.isInteger(day) || day < 1 || day > 31) throw new Error('账单周期设置无效');
+  return startDay === endDay ? billingCycleForStartDay(startDay) : { mode: 'window', day: startDay, boundary: 'start', startDay, endDay };
+}
+
+/** Preserve independently saved ranges and normalize legacy single-boundary cycles. */
 export function normalizeBillingCycle(cycle: BillingCycle): BillingCycle {
   if (cycle.mode === 'calendar') return { ...DEFAULT_BILLING_CYCLE };
-  const startDay = cycle.mode === 'range' ? cycle.startDay! : cycle.boundary === 'end' ? (cycle.day === 31 ? 1 : cycle.day + 1) : cycle.day;
+  if (cycle.mode === 'range' || cycle.mode === 'window') return { mode: cycle.mode, day: cycle.day, boundary: cycle.boundary, startDay: cycle.startDay, endDay: cycle.endDay };
+  const startDay = cycle.boundary === 'end' ? (cycle.day === 31 ? 1 : cycle.day + 1) : cycle.day;
   return billingCycleForStartDay(startDay);
 }
 
@@ -42,9 +49,9 @@ function followingDate(iso: string, offset = 1): string {
 /** Calendar months or recurring cycles, with short-month anchors clamped. */
 export function reportPeriod(month: string, cycle: BillingCycle = DEFAULT_BILLING_CYCLE): ReportingPeriod {
   const calendar = monthBounds(month);
-  if (!cycle || !['calendar', 'custom', 'range'].includes(cycle.mode) || !Number.isInteger(cycle.day)
+  if (!cycle || !['calendar', 'custom', 'range', 'window'].includes(cycle.mode) || !Number.isInteger(cycle.day)
       || cycle.day < 1 || cycle.day > 31 || !['start', 'end'].includes(cycle.boundary)) throw new Error('账单周期设置无效');
-  if (cycle.mode === 'range' && (!Number.isInteger(cycle.startDay) || !Number.isInteger(cycle.endDay)
+  if ((cycle.mode === 'range' || cycle.mode === 'window') && (!Number.isInteger(cycle.startDay) || !Number.isInteger(cycle.endDay)
       || cycle.startDay! < 1 || cycle.startDay! > 31 || cycle.endDay! < 1 || cycle.endDay! > 31)) throw new Error('账单周期设置无效');
   let { start, end } = calendar;
   if (cycle.mode === 'custom') {
@@ -60,6 +67,9 @@ export function reportPeriod(month: string, cycle: BillingCycle = DEFAULT_BILLIN
   } else if (cycle.mode === 'range') {
     start = dateAt(calendar.previous, cycle.startDay!);
     end = dateAt(month, cycle.endDay!);
+  } else if (cycle.mode === 'window') {
+    start = dateAt(calendar.previous, cycle.startDay!);
+    end = followingDate(dateAt(month, cycle.endDay!), -1);
   }
   const dates: string[] = [];
   for (let current = start; current <= end; current = followingDate(current)) {
