@@ -119,7 +119,12 @@ describe('official normalized snapshots', () => {
     const summary = summarizeInvestments(snapshot, report, 'CNY');
     expect(summary.holdings).toHaveLength(1);
     expect(summary.holdings[0]).toMatchObject({ commodity: 'STOCK', currency: 'CNY', marketValue: '150' });
-    expect(summary.holdings[0].lots.map(lot => lot.costLabel)).toEqual(['A', 'B']);
+    expect(summary.holdings[0].lots.map(lot => lot.costLabel)).toEqual(['B', 'A']);
+    const dated = report.positions.filter(position => position.currency === 'CNY');
+    const sameDay = { ...dated[1], costLabel: 'C' };
+    const undated = { ...dated[0], costDate: null, costLabel: 'undated' };
+    const mixed = { ...report, positions: [undated, dated[1], sameDay, dated[0]] };
+    expect(summarizeInvestments(snapshot, mixed, 'CNY').holdings[0].lots.map(lot => lot.costLabel)).toEqual(['B', 'C', 'A', 'undated']);
     const missing = { ...report, positions: report.positions.filter(position => position.currency === 'CNY').map(position => ({ ...position, marketValue: null })) };
     expect(summarizeInvestments(snapshot, missing, 'CNY').holdings[0].marketValue).toBeNull();
   });

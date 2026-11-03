@@ -257,7 +257,7 @@ export function summarizeInvestments(ledger: Ledger, report: AccountReport, curr
   const holdings = [...groups.values()].map(lots => ({
     account: lots[0].account, accountLabel: lots[0].accountLabel, commodity: lots[0].commodity, currency: lots[0].currency,
     marketValue: lots.some(lot => lot.marketValue === null) ? null : text(sum(lots.map(lot => lot.marketValue!))),
-    lots,
+    lots: [...lots].sort((a, b) => !a.costDate ? (b.costDate ? 1 : 0) : !b.costDate ? -1 : b.costDate.localeCompare(a.costDate)),
   }));
   return { monetaryAssets, holdings };
 }
