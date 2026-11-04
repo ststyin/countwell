@@ -9,7 +9,7 @@ import { useTheme } from './hooks/useTheme'
 
 function CountwellRoot() {
   useTheme()
-  return cloudMode ? <CloudGate><App /></CloudGate> : <App />
+  return cloudMode ? <CloudGate>{(snapshot, navigationReady) => <App initialCloudSnapshot={snapshot} cloudNavigationReady={navigationReady} />}</CloudGate> : <App />
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

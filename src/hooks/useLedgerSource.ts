@@ -12,16 +12,17 @@ function emptyCloudLedger(): Ledger {
   return { title: 'Countwell', source: '', defaultMonth: new Date().toISOString().slice(0, 7), accounts: [], accountNames: [], commodities: [], prices: [], transactions: [] }
 }
 
-export function useLedgerSource() {
-  const [ledger, setLedger] = useState<Ledger>(() => cloudMode ? emptyCloudLedger() : loadDemoLedger())
-  const [status, setStatus] = useState<SourceStatus | null>(null)
-  const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null)
+export function useLedgerSource(initialCloudSnapshot?: SourceSnapshot) {
+  const initial = cloudMode ? initialCloudSnapshot : undefined
+  const [ledger, setLedger] = useState<Ledger>(() => initial?.ledger ?? (cloudMode ? emptyCloudLedger() : loadDemoLedger()))
+  const [status, setStatus] = useState<SourceStatus | null>(() => initial?.status ?? null)
+  const [backendAvailable, setBackendAvailable] = useState<boolean | null>(() => initial ? true : null)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<SourceFailure | null>(null)
-  const [real, setReal] = useState(false)
-  const [needsConnection, setNeedsConnection] = useState(() => cloudMode || expectedReal())
-  const [initialLoading, setInitialLoading] = useState(() => cloudMode || expectedReal())
-  const snapshotId = useRef<string | null>(null)
+  const [error, setError] = useState<SourceFailure | null>(() => initial?.status.lastError ?? null)
+  const [real, setReal] = useState(() => Boolean(initial))
+  const [needsConnection, setNeedsConnection] = useState(() => !initial && (cloudMode || expectedReal()))
+  const [initialLoading, setInitialLoading] = useState(() => !initial && (cloudMode || expectedReal()))
+  const snapshotId = useRef<string | null>(initial?.status.snapshotId ?? null)
   const mounted = useRef(true)
   const operation = useRef(0)
   const operating = useRef(false)
@@ -67,6 +68,7 @@ export function useLedgerSource() {
       if ((cloudMode || next.configured) && !next.connected && !snapshotId.current) setNeedsConnection(true)
     } catch (error) {
       if (!mounted.current || generation !== operation.current) return
+      if (error instanceof SourceClientError && error.failure.code === 'REQUEST_CANCELLED') return
       if (expireSession(error)) return
       setBackendAvailable(false)
       if (cloudMode || expectedReal()) {
@@ -80,7 +82,8 @@ export function useLedgerSource() {
   }, [apply, expireSession])
 
   useEffect(() => {
-    mounted.current = true; void refreshStatus()
+    mounted.current = true
+    if (!snapshotId.current) void refreshStatus()
     const timer = window.setInterval(() => void refreshStatus(), 5000)
     return () => { mounted.current = false; window.clearInterval(timer) }
   }, [refreshStatus])

@@ -43,6 +43,16 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('cloud ledger startup', () => {
+  it('uses the authenticated prefetched snapshot immediately without requesting it again', () => {
+    const snapshot = { ledger: { title: 'prefetched private sentinel' }, status: { snapshotId: 'v1', lastError: null } }
+    harness.cursor = 0
+    const source = useLedgerSource(snapshot as Parameters<typeof useLedgerSource>[0])
+    expect(source).toMatchObject({ ledger: snapshot.ledger, status: snapshot.status, initialLoading: false, needsConnection: false, real: true, backendAvailable: true })
+    harness.effects.forEach(effect => effect())
+    expect(harness.request).not.toHaveBeenCalled()
+    expect(localStorage.setItem).not.toHaveBeenCalledWith(expect.anything(), expect.stringContaining('prefetched private sentinel'))
+  })
+
   it('stays loading until the authenticated snapshot arrives, without a separate status request', async () => {
     const pending = deferred<unknown>()
     harness.request.mockReturnValue(pending.promise)

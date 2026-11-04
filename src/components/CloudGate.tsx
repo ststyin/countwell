@@ -2,15 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Github, LoaderCircle, RefreshCw } from 'lucide-react'
 import BrandIcon from './BrandIcon'
+import { connectCloud } from '../lib/cloud-connection'
+import type { CloudConnection } from '../lib/cloud-connection'
+import { clearSourceSession } from '../lib/source-client'
+import type { SourceSnapshot } from '../lib/source-client'
+import { usePwa } from '../hooks/usePwa'
+import { useStartupNavigation } from '../hooks/useStartupNavigation'
 
-interface AuthStatus {
-  cloud: true
-  configured: boolean
-  authenticated: boolean
-  user?: { login: string }
-}
-
-type GateState = { phase: 'checking' } | { phase: 'authenticated' } | { phase: 'signed-out'; configured: boolean } | { phase: 'error' }
+type GateState = { phase: 'checking' } | CloudConnection | { phase: 'error' }
 
 const callbackMessages: Record<string, string> = {
   denied: '登录未获授权，请使用你的 GitHub 账号重试。',
@@ -24,8 +23,10 @@ function callbackMessage() {
   return code ? callbackMessages[code] ?? '' : ''
 }
 
-export default function CloudGate({ children }: { children: ReactNode }) {
+export default function CloudGate({ children }: { children: ReactNode | ((snapshot: SourceSnapshot, navigationReady: boolean) => ReactNode) }) {
   const [state, setState] = useState<GateState>({ phase: 'checking' })
+  const pwa = usePwa()
+  const navigationReady = useStartupNavigation(pwa.ios && pwa.isStandalone, state.phase === 'checking')
   const [message] = useState(callbackMessage)
   const sequence = useRef(0)
   const controller = useRef<AbortController | null>(null)
@@ -38,14 +39,11 @@ export default function CloudGate({ children }: { children: ReactNode }) {
     const timeout = window.setTimeout(() => request.abort(), 15_000)
     setState({ phase: 'checking' })
     try {
-      const response = await fetch('/api/auth/status', { cache: 'no-store', credentials: 'same-origin', signal: request.signal })
-      if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) throw new Error('Auth status unavailable')
-      const status = await response.json() as AuthStatus
-      if (status.cloud !== true || typeof status.configured !== 'boolean' || typeof status.authenticated !== 'boolean') throw new Error('Invalid auth status')
+      const status = await connectCloud(request)
       if (current !== sequence.current) return
-      setState(status.configured && status.authenticated ? { phase: 'authenticated' } : { phase: 'signed-out', configured: status.configured })
+      setState(status)
     } catch {
-      if (current === sequence.current) setState({ phase: 'error' })
+      if (current === sequence.current) { clearSourceSession(); setState({ phase: 'error' }) }
     } finally { window.clearTimeout(timeout) }
   }, [])
 
@@ -61,6 +59,7 @@ export default function CloudGate({ children }: { children: ReactNode }) {
     return () => {
       sequence.current++
       controller.current?.abort()
+      clearSourceSession()
       window.removeEventListener('countwell:session-expired', expired)
     }
   }, [check])
@@ -69,7 +68,7 @@ export default function CloudGate({ children }: { children: ReactNode }) {
     if (state.phase !== 'authenticated') document.title = '登录账本 · Countwell'
   }, [state.phase])
 
-  if (state.phase === 'authenticated') return children
+  if (state.phase === 'authenticated') return typeof children === 'function' ? children(state.snapshot, navigationReady) : children
 
   const unavailable = state.phase === 'signed-out' && !state.configured
   return <main className="cloud-gate">

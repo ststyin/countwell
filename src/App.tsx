@@ -17,6 +17,7 @@ import { useTheme } from './hooks/useTheme'
 import { useBillingCycle } from './hooks/useBillingCycle'
 import { useStartupNavigation } from './hooks/useStartupNavigation'
 import { billingMonthForDate, reportPeriod } from './domain'
+import type { SourceSnapshot } from './lib/source-client'
 
 const navigation = [
   { page: 'overview', title: '收支总览', short: '总览', icon: LayoutDashboard },
@@ -29,8 +30,8 @@ function readPreference(key: string, fallback: string) {
   try { return localStorage.getItem(`countwell.${key}`) ?? fallback } catch { return fallback }
 }
 
-export default function App() {
-  const sourceController = useLedgerSource()
+export default function App({ initialCloudSnapshot, cloudNavigationReady }: { initialCloudSnapshot?: SourceSnapshot; cloudNavigationReady?: boolean }) {
+  const sourceController = useLedgerSource(initialCloudSnapshot)
   const { ledger } = sourceController
   const sourceFiles = ledger.files?.length ? ledger.files : [{ path: 'demo.beancount', content: ledger.source }]
   const [sourceFileIndex, setSourceFileIndex] = useState(0)
@@ -49,7 +50,8 @@ export default function App() {
   const sourceTrigger = useRef<HTMLElement | null>(null)
   const openSource = () => { sourceTrigger.current = document.activeElement as HTMLElement; setSourceOpen(true) }
   const pwa = usePwa()
-  const navigationReady = useStartupNavigation(pwa.ios && pwa.isStandalone, sourceController.initialLoading)
+  const localNavigationReady = useStartupNavigation(pwa.ios && pwa.isStandalone && cloudNavigationReady === undefined, sourceController.initialLoading, Boolean(initialCloudSnapshot))
+  const navigationReady = cloudNavigationReady ?? localNavigationReady
   const active = navigation.find(item => item.page === route.page)!
   useEffect(() => {
     if (!sourceController.real) { sourceIdentity.current = ''; return }

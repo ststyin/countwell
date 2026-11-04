@@ -3,6 +3,8 @@ import { createCloudApp } from '../cloud/app'
 import type { CloudEnv } from '../cloud/app'
 import { OAUTH_COOKIE, SESSION_COOKIE } from '../cloud/auth'
 import type { SourceSnapshot } from '../src/lib/source-client'
+import { clearSourceSession } from '../src/lib/source-client'
+import { connectCloud } from '../src/lib/cloud-connection'
 
 const origin = 'https://ledger.example'
 const snapshot: SourceSnapshot = {
@@ -73,9 +75,28 @@ async function session(context: Context, sessionCookie: string) {
   return { response, csrf: (await response.json() as { csrf: string }).csrf }
 }
 
-afterEach(() => { vi.useRealTimers() })
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); clearSourceSession() })
 
 describe('private cloud login and snapshot interface', () => {
+  it('connects the parallel client to the real authenticated cloud API without exposing anonymous snapshots', async () => {
+    const context = setup()
+    const { sessionCookie } = await signIn(context)
+    let cookieValue = sessionCookie
+    const fetcher = vi.fn(async (path: string, init?: RequestInit) => {
+      const headers = new Headers(init?.headers)
+      if (cookieValue) headers.set('Cookie', cookieValue)
+      return context.app.fetch(request(path, { ...init, headers }), context.env)
+    })
+    vi.stubGlobal('fetch', fetcher)
+    expect(await connectCloud(new AbortController())).toEqual({ phase: 'authenticated', snapshot })
+    expect(context.getSnapshot).toHaveBeenCalledTimes(1)
+    context.getSnapshot.mockClear()
+    cookieValue = ''
+    const anonymous = await connectCloud(new AbortController())
+    expect(anonymous).toEqual({ phase: 'signed-out', configured: true })
+    expect(context.getSnapshot).not.toHaveBeenCalled()
+  })
+
   it('fails closed for each missing setting and a weak signing secret without reading a ledger', async () => {
     for (const name of ['GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'SESSION_SECRET', 'GITHUB_ALLOWED_USER_ID'] as const) {
       const context = setup()

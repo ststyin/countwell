@@ -37,4 +37,10 @@ describe('iPhone PWA startup layout', () => {
     scenario.loading = false
     expect(renderToStaticMarkup(<App />)).toContain('aria-label="手机导航"')
   })
+
+  it('also waits for iOS viewport settling when the ledger was prefetched on the login screen', () => {
+    scenario.loading = false
+    const snapshot = { ledger: {} as never, status: {} as never }
+    expect(renderToStaticMarkup(<App initialCloudSnapshot={snapshot} />)).not.toContain('aria-label="手机导航"')
+  })
 })
