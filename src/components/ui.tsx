@@ -6,10 +6,10 @@ import { currencySymbols, formatAmount } from '../lib/format'
 
 export const DisplayContext = createContext({ hidden: false, currency: 'CNY' })
 
-export function Money({ amount, currency, className = '', symbol = false, signed = false }: { amount: string | null; currency?: string; className?: string; symbol?: boolean; signed?: boolean }) {
+export function Money({ amount, currency, className = '', symbol = false, signed = false, decimals = 2 }: { amount: string | null; currency?: string; className?: string; symbol?: boolean; signed?: boolean; decimals?: number }) {
   const display = useContext(DisplayContext)
   const unit = currency ?? display.currency
-  const value = amount === null ? '—' : `${signed && !amount.startsWith('-') && amount !== '0' ? '+' : ''}${formatAmount(amount)}`
+  const value = amount === null ? '—' : `${signed && !amount.startsWith('-') && amount !== '0' ? '+' : ''}${formatAmount(amount, decimals)}`
   return <span className={`money ${className}`} aria-label={display.hidden ? '金额已隐藏' : undefined}>{display.hidden ? '••••' : <>{symbol && unit !== 'CNY' && amount !== null && <span className="currency-symbol">{currencySymbols[unit] ?? unit + ' '}</span>}{value}</>}</span>
 }
 

@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { loadOfficialLedger, OfficialLedgerError } from '../server/engine'
-import { getAccounts } from '../src/domain/reports'
+import { getAccounts, summarizeInvestments } from '../src/domain/reports'
 
 const pythonPath = process.env.COUNTWELL_PYTHON
   ?? (existsSync(resolve('.venv/bin/python')) ? resolve('.venv/bin/python') : 'python3')
@@ -123,6 +123,7 @@ describe('official Beancount engine bridge', () => {
   Assets:Broker -4 STOCK {} @ 15 USD
   Assets:Bank 60 USD
   Income:Salary -16 USD
+2026-10-02 price STOCK 20 USD
 ` })
     const ledger = await loadOfficialLedger(join(root, 'main.bean'), { pythonPath })
     const sale = ledger.transactions.find(transaction => transaction.narration === 'Sale')!
@@ -132,6 +133,10 @@ describe('official Beancount engine bridge', () => {
       expect.objectContaining({ amount: '-2', cost: { amount: '10', currency: 'USD', date: '2026-09-01', label: 'first' }, price: { amount: '15', currency: 'USD' }, weight: { amount: '-20', currency: 'USD' } }),
       expect.objectContaining({ amount: '-2', cost: { amount: '12', currency: 'USD', date: '2026-09-02', label: 'second' }, weight: { amount: '-24', currency: 'USD' } }),
     ]))
+    const report = getAccounts(ledger, undefined, 'USD')
+    const holding = summarizeInvestments(ledger, report, 'USD').holdings[0]
+    expect(holding).toMatchObject({ commodity: 'STOCK', marketValue: '20', costs: [{ currency: 'USD', amount: '12' }], unrealizedPnl: '8' })
+    expect(holding.lots).toMatchObject([{ units: '1', unitCost: '12', costDate: '2026-09-02' }])
   })
 
   it('preserves multi-currency transactions and custom account roots', async () => {

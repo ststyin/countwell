@@ -105,6 +105,7 @@ describe('official normalized snapshots', () => {
     expect(report).toMatchObject({ cash: '1035', investments: '93', netWorth: '1128' });
     expect(report.positions).toHaveLength(1);
     expect(report.positions[0]).toMatchObject({ units: '3', cost: '75', costDate: '2026-09-20', costLabel: 'second', marketValue: '93', unrealizedPnl: '18' });
+    expect(summarizeInvestments(snapshot, report, 'CNY').holdings[0]).toMatchObject({ costs: [{ currency: 'CNY', amount: '75' }], marketValue: '93', unrealizedPnl: '18' });
     expect(getOverview(snapshot, '2026-10')).toMatchObject({ income: '110', expense: '0', flowSupported: true });
   });
 
@@ -118,7 +119,7 @@ describe('official normalized snapshots', () => {
     const report = getAccounts(snapshot, undefined, 'CNY');
     const summary = summarizeInvestments(snapshot, report, 'CNY');
     expect(summary.holdings).toHaveLength(1);
-    expect(summary.holdings[0]).toMatchObject({ commodity: 'STOCK', currency: 'CNY', marketValue: '150' });
+    expect(summary.holdings[0]).toMatchObject({ commodity: 'STOCK', currency: 'CNY', marketValue: '150', costs: [{ currency: 'CNY', amount: '115' }], unrealizedPnl: '35' });
     expect(summary.holdings[0].lots.map(lot => lot.costLabel)).toEqual(['B', 'A']);
     const dated = report.positions.filter(position => position.currency === 'CNY');
     const sameDay = { ...dated[1], costLabel: 'C' };
@@ -126,7 +127,24 @@ describe('official normalized snapshots', () => {
     const mixed = { ...report, positions: [undated, dated[1], sameDay, dated[0]] };
     expect(summarizeInvestments(snapshot, mixed, 'CNY').holdings[0].lots.map(lot => lot.costLabel)).toEqual(['B', 'C', 'A', 'undated']);
     const missing = { ...report, positions: report.positions.filter(position => position.currency === 'CNY').map(position => ({ ...position, marketValue: null })) };
-    expect(summarizeInvestments(snapshot, missing, 'CNY').holdings[0].marketValue).toBeNull();
+    expect(summarizeInvestments(snapshot, missing, 'CNY').holdings[0]).toMatchObject({ marketValue: null, costs: [{ currency: 'CNY', amount: '115' }], unrealizedPnl: null });
+  });
+
+  it('keeps costs visible without quotes and never invents incomplete or cross-currency gains', () => {
+    const snapshot = ledger([
+      transaction('2026-09-01', '人民币买入', [posting('Assets:Broker', '2', 'STOCK', { cost: { amount: '20', currency: 'CNY', date: '2026-09-01' } }), posting('Assets:Bank', '-40')]),
+      transaction('2026-09-20', '美元买入', [posting('Assets:Broker', '3', 'STOCK', { cost: { amount: '5', currency: 'USD', date: '2026-09-20' } }), posting('Assets:USD', '-15', 'USD')]),
+    ], { prices: [{ date: '2026-10-01', commodity: 'STOCK', amount: '30', currency: 'CNY' }] });
+    const report = getAccounts(snapshot, undefined, 'CNY');
+    const holding = summarizeInvestments(snapshot, report, 'CNY').holdings[0];
+    expect(holding).toMatchObject({ marketValue: '150', unrealizedPnl: null });
+    expect(holding.costs).toEqual(expect.arrayContaining([{ currency: 'CNY', amount: '40' }, { currency: 'USD', amount: '15' }]));
+    const missingPrice = ledger(snapshot.transactions);
+    const missingHolding = summarizeInvestments(missingPrice, getAccounts(missingPrice), 'CNY').holdings;
+    expect(missingHolding.every(item => item.marketValue === null && item.unrealizedPnl === null)).toBe(true);
+    expect(missingHolding.flatMap(item => item.costs ?? [])).toEqual(expect.arrayContaining([{ currency: 'CNY', amount: '40' }, { currency: 'USD', amount: '15' }]));
+    const incomplete = { ...report, positions: report.positions.map(position => position.costLabel === null && position.costCurrency === 'CNY' ? { ...position, cost: null, unitCost: null, unrealizedPnl: null } : position) };
+    expect(summarizeInvestments(snapshot, incomplete, 'CNY').holdings[0]).toMatchObject({ costs: null, unrealizedPnl: null });
   });
 
   it('does not merge equal unit costs whose official booked lot dates or labels differ', () => {

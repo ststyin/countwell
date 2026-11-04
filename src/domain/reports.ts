@@ -340,10 +340,21 @@ export function summarizeInvestments(ledger: Ledger, report: AccountReport, curr
     const key = JSON.stringify([position.account, position.commodity, position.currency]);
     groups.set(key, [...(groups.get(key) ?? []), position]);
   }
-  const holdings = [...groups.values()].map(lots => ({
-    account: lots[0].account, accountLabel: lots[0].accountLabel, commodity: lots[0].commodity, currency: lots[0].currency,
-    marketValue: lots.some(lot => lot.marketValue === null) ? null : text(sum(lots.map(lot => lot.marketValue!))),
-    lots: [...lots].sort((a, b) => !a.costDate ? (b.costDate ? 1 : 0) : !b.costDate ? -1 : b.costDate.localeCompare(a.costDate)),
-  }));
+  const holdings = [...groups.values()].map(lots => {
+    const costsComplete = lots.every(lot => lot.cost !== null && lot.costCurrency && !new Decimal(lot.units).isNegative());
+    const costCurrencies = [...new Set(lots.map(lot => lot.costCurrency).filter((value): value is string => Boolean(value)))];
+    const costs = costsComplete ? costCurrencies.map(costCurrency => ({
+      currency: costCurrency,
+      amount: text(sum(lots.filter(lot => lot.costCurrency === costCurrency).map(lot => lot.cost!))),
+    })) : null;
+    const marketValue = lots.some(lot => lot.marketValue === null) ? null : text(sum(lots.map(lot => lot.marketValue!)));
+    return {
+      account: lots[0].account, accountLabel: lots[0].accountLabel, commodity: lots[0].commodity, currency: lots[0].currency,
+      marketValue,
+      costs,
+      unrealizedPnl: marketValue === null || costs === null || lots.some(lot => lot.unrealizedPnl === null || lot.costCurrency !== lot.currency) ? null : text(sum(lots.map(lot => lot.unrealizedPnl!))),
+      lots: [...lots].sort((a, b) => !a.costDate ? (b.costDate ? 1 : 0) : !b.costDate ? -1 : b.costDate.localeCompare(a.costDate)),
+    };
+  });
   return { monetaryAssets, holdings };
 }

@@ -536,6 +536,12 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .investment-item-name small, .investment-item-value small { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
 .investment-item-name small { overflow-wrap: anywhere; }
 .investment-item-value { text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; }
+.holding-summary-metrics { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 6px 22px; min-width: 0; color: var(--muted); font-size: 11px; }
+.holding-summary-metric { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.holding-summary-metric > span:last-child { color: var(--text-secondary); font-size: 12px; }
+.holding-summary-metric > .income-tone { color: var(--income) !important; }
+.holding-summary-metric > .expense-tone { color: var(--expense) !important; }
+.holding-cost-values { display: inline-flex; flex-wrap: wrap; gap: 4px 8px; }
 .investment-chevron { color: var(--muted); transition: transform .18s; }
 .investment-item[open] .investment-chevron { transform: rotate(180deg); }
 .investment-item-detail { padding: 0 0 14px; }
@@ -546,7 +552,7 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .position-name { display: flex; align-items: center; gap: 11px; min-width: 175px; }
 .position-name strong { display: block; font-size: 14px; font-weight: 500; }
 .position-name small { display: block; font-size: 11px; color: var(--muted); margin-top: 5px; }
-.position-metrics { flex: 1 1 330px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.position-metrics { flex: 1 1 440px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
 .position-metrics > div { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; min-width: 0; text-align: right; }
 .position-metrics > div > span:first-child { color: var(--muted); font-size: 11px; }
 .position-metrics > div > .money, .position-metrics > div > span > .money { font-size: 15px; }
@@ -660,7 +666,7 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .position-name { width: 100%; }
   .position-name strong { font-size: 14px; }
   .position-name small { font-size: 11px; }
-  .position-metrics { flex-basis: 100%; gap: 10px; }
+  .position-metrics { flex-basis: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 10px; }
   .position-metrics > div { align-items: flex-start; text-align: left; gap: 6px; }
   .position-metrics > div > span:first-child { font-size: 11px; }
   .position-metrics > div > .money, .position-metrics > div > span > .money { font-size: 14px; }
