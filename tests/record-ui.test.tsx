@@ -13,7 +13,7 @@ describe('record expense page', () => {
 2026-01-01 open Income:Salary
 `)
     const html = renderToStaticMarkup(<RecordPage ledger={ledger} />)
-    for (const label of ['支出金额', '支付方式', '支出分类', '日期', '描述', '保存并提交', 'Bank', 'CreditCard', 'Food']) expect(html).toContain(label)
+    for (const label of ['支出金额', '支付方式', '支出分类', '日期', '交易对象', '描述', '保存并提交', 'Bank', 'CreditCard', 'Food']) expect(html).toContain(label)
     expect(html).not.toContain('Income:Salary')
     expect(parseRoute(routeHref('record', '2026-11')).page).toBe('record')
   })
