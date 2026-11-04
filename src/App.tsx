@@ -15,6 +15,7 @@ import BrandIcon from './components/BrandIcon'
 import ThemeControl from './components/ThemeControl'
 import { useTheme } from './hooks/useTheme'
 import { useBillingCycle } from './hooks/useBillingCycle'
+import { useStartupNavigation } from './hooks/useStartupNavigation'
 import { billingMonthForDate, reportPeriod } from './domain'
 
 const navigation = [
@@ -48,6 +49,7 @@ export default function App() {
   const sourceTrigger = useRef<HTMLElement | null>(null)
   const openSource = () => { sourceTrigger.current = document.activeElement as HTMLElement; setSourceOpen(true) }
   const pwa = usePwa()
+  const navigationReady = useStartupNavigation(pwa.ios && pwa.isStandalone, sourceController.initialLoading)
   const active = navigation.find(item => item.page === route.page)!
   useEffect(() => {
     if (!sourceController.real) { sourceIdentity.current = ''; return }
@@ -97,7 +99,7 @@ export default function App() {
   const go = (page: Page, filters = {}) => navigate({ page, kind: 'all', search: '', account: '', allTime: false, date: undefined, section: undefined, cardCurrency: undefined, paymentCurrency: undefined, ...filters })
   const pageContent = sourceController.needsConnection && route.page !== 'settings'
     ? cloudMode
-      ? <EmptyState title={sourceController.initialLoading ? '正在读取账本' : '账本暂不可用'} action={!sourceController.initialLoading && <button className="button" onClick={() => void sourceController.refreshStatus()}>重试</button>} />
+      ? <EmptyState title={sourceController.initialLoading ? '正在读取账本' : '账本暂不可用'} action={sourceController.initialLoading ? !navigationReady && <button className="button" onClick={() => go('settings')}>前往设置</button> : <button className="button" onClick={() => void sourceController.refreshStatus()}>重试</button>} />
       : <EmptyState title="尚未连接账本" action={<button className="button" onClick={() => go('settings')}>连接账本</button>} />
     : route.page === 'overview'
     ? <OverviewPage ledger={ledger} month={route.month} currency={currency} cycle={cycle} onNavigate={go} />
@@ -126,7 +128,7 @@ export default function App() {
           {pageContent}
         </div>
       </main>
-      <nav className="mobile-nav" aria-label="手机导航">{navigation.map(item => <a key={item.page} className={`mobile-nav-item ${route.page === item.page ? 'active' : ''}`} aria-current={route.page === item.page ? 'page' : undefined} href={routeHref(item.page, route.month)}><item.icon size={22} strokeWidth={1.8} aria-hidden="true" /><span>{item.short}</span></a>)}</nav>
+      {navigationReady && <nav className="mobile-nav" aria-label="手机导航">{navigation.map(item => <a key={item.page} className={`mobile-nav-item ${route.page === item.page ? 'active' : ''}`} aria-current={route.page === item.page ? 'page' : undefined} href={routeHref(item.page, route.month)}><item.icon size={22} strokeWidth={1.8} aria-hidden="true" /><span>{item.short}</span></a>)}</nav>}
       {sourceOpen && <div className="modal-backdrop" onClick={() => setSourceOpen(false)}><section className="drawer source-drawer" role="dialog" aria-modal="true" aria-labelledby="source-title" onClick={e => e.stopPropagation()}><header className="drawer-header"><h2 id="source-title">{ledger.title}</h2><button className="icon-button" autoFocus onClick={() => setSourceOpen(false)} aria-label="关闭账本原文"><X size={20} /></button></header>{sourceFiles.length > 1 && <label className="source-file-selector">账本源文件<select aria-label="账本源文件" value={sourceFileIndex} onChange={event => setSourceFileIndex(Number(event.target.value))}>{sourceFiles.map((file, index) => <option key={file.path} value={index}>{file.path}</option>)}</select></label>}{hidden ? <div className="empty-state"><EyeOff size={24} /><p>金额已隐藏</p><button className="button" onClick={() => setHidden(false)}>显示金额</button></div> : <pre className="source-code">{sourceFiles[sourceFileIndex]?.content ?? ledger.source}</pre>}</section></div>}
       <span className="sr-only" aria-live="polite">{hidden ? '金额已隐藏' : ''}</span>
     </div>
