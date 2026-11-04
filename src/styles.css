@@ -473,12 +473,12 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 
 .transactions-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .search-field { position: relative; flex: 1 1 240px; display: flex; align-items: center; min-width: 0; }
-.search-icon { position: absolute; left: 14px; color: var(--muted); pointer-events: none; }
+.search-icon { position: absolute; z-index: 1; left: 14px; color: var(--muted); pointer-events: none; }
 .search-field > .icon-button { position: absolute; right: 6px; min-width: 32px; width: 32px; height: 32px; border: 0; background: transparent; }
 .search-field input::-webkit-search-cancel-button { display: none; }
 .account-filter { position: relative; display: inline-flex; align-items: center; min-width: 175px; color: var(--muted); }
-.account-filter > svg { position: absolute; left: 13px; pointer-events: none; }
-.account-filter > select { max-width: 240px; }
+.account-filter > svg { position: absolute; z-index: 1; left: 13px; pointer-events: none; }
+.account-filter > .field-frame { max-width: 240px; }
 .filter-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; padding: 20px 0; border-bottom: 1px solid var(--line-soft); }
 .filter-tabs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .filter-chip { min-height: 38px; padding: 8px 12px; color: var(--muted); border: 1px solid transparent; border-radius: 9px; font-size: 11px; }
@@ -635,7 +635,7 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .transactions-toolbar { gap: 10px; }
   .search-field { flex-basis: 100%; }
   .account-filter { width: 100%; }
-  .account-filter > select { max-width: none; }
+  .account-filter > .field-frame { max-width: none; }
   .filter-row { gap: 9px; padding: 13px 0 10px; }
   .filter-tabs { gap: 4px; }
   .filter-chip { min-height: 40px; font-size: 11px; padding-left: 10px; padding-right: 10px; }
@@ -806,7 +806,7 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 
 .record-panel { max-width: 640px; }
 .record-form { display: grid; gap: 22px; }
-.record-amount > span, .record-fields label > span { display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 12px; }
+.record-amount > span, .record-fields label > span:not(.field-frame) { display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 12px; }
 .record-amount > div { display: flex; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--line); }
 .record-amount > div > span { font-size: 23px; color: var(--text-secondary); }
 .record-amount input { width: 100%; border: 0; outline: 0; background: transparent; font-size: 38px; padding: 6px 0 12px; font-variant-numeric: tabular-nums; }
@@ -824,11 +824,10 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .record-success-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 18px; color: var(--expense); background: var(--expense-soft); }
 @media (max-width: 760px) { .record-fields { grid-template-columns: minmax(0, 1fr); gap: 14px; } .record-panel { padding: 18px; } }
 
-/* Shared form controls: match across recording, transactions, and settings. */
-.record-fields input, .record-fields select,
-.search-field > input, .account-filter > select,
-.billing-cycle-controls select,
-.source-form input:not([type='checkbox']), .source-file-selector select {
+/* The frame keeps all controls at the same visible size. */
+.field-frame { position: relative; display: block; width: 100%; min-width: 0; height: var(--field-height); overflow: hidden; }
+.field-frame:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
+.field-frame > input, .field-frame > select {
   display: block;
   width: 100%;
   min-width: 0;
@@ -839,12 +838,11 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   border-radius: var(--field-radius);
   background: var(--surface-soft);
   color: var(--text);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 20px;
 }
-.record-fields input, .record-fields select { max-width: 100%; }
-.search-field > input { -webkit-appearance: none; appearance: none; padding-left: 40px; padding-right: 38px; }
-.record-fields select, .account-filter > select, .billing-cycle-controls select, .source-file-selector select {
+.search-field .field-frame > input { -webkit-appearance: none; appearance: none; padding-left: 40px; padding-right: 38px; }
+.field-frame > select {
   -webkit-appearance: none;
   appearance: none;
   padding-right: 38px;
@@ -853,14 +851,27 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   background-position: right 12px center;
   background-size: 16px;
 }
-.account-filter > select { padding-left: 37px; }
-.record-fields input:focus, .record-fields select:focus,
-.search-field > input:focus, .account-filter > select:focus,
-.billing-cycle-controls select:focus,
-.source-form input:not([type='checkbox']):focus, .source-file-selector select:focus { background-color: var(--surface); border-color: var(--accent); }
+.account-filter .field-frame > select { padding-left: 37px; }
+.field-frame > input:focus, .field-frame > select:focus { background-color: var(--surface); border-color: var(--accent); }
 @media (max-width: 760px) {
-  .record-fields input, .record-fields select,
-  .search-field > input, .account-filter > select,
-  .billing-cycle-controls select,
-  .source-form input:not([type='checkbox']), .source-file-selector select { font-size: 16px; }
+  /* iOS needs a 16px input font to avoid focus zoom. Scaling keeps it visibly 13px. */
+  .field-frame > input, .field-frame > select {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 123.076923%;
+    max-width: none;
+    height: 44.307692px;
+    min-height: 44.307692px;
+    padding: 8.615385px 14.769231px;
+    border-width: 1.230769px;
+    border-radius: 12.307692px;
+    font-size: 16px;
+    line-height: 24.615385px;
+    transform: scale(.8125);
+    transform-origin: left top;
+  }
+  .field-frame > select { padding-right: 46.769231px; background-position: right 14.769231px center; background-size: 19.692308px; }
+  .search-field .field-frame > input { padding-left: 49.230769px; padding-right: 46.769231px; }
+  .account-filter .field-frame > select { padding-left: 45.538462px; }
 }
