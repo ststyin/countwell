@@ -16,7 +16,6 @@ import ThemeControl from './components/ThemeControl'
 import { useTheme } from './hooks/useTheme'
 import { useBillingCycle } from './hooks/useBillingCycle'
 import { billingMonthForDate, reportPeriod } from './domain'
-import ViewportDiagnostics from './components/ViewportDiagnostics'
 
 const navigation = [
   { page: 'overview', title: '收支总览', short: '总览', icon: LayoutDashboard },
@@ -42,6 +41,7 @@ export default function App() {
   const [hidden, setHidden] = useState(() => readPreference('privacy', 'false') === 'true')
   const currency = 'CNY'
   const { preference, setPreference } = useTheme()
+  useEffect(() => { try { localStorage.removeItem('countwell.viewportDiagnostics') } catch { /* The temporary diagnostic preference is optional. */ } }, [])
   const period = reportPeriod(route.month, cycle)
   const datedPage = route.page === 'overview' || route.page === 'transactions'
   const [sourceOpen, setSourceOpen] = useState(false)
@@ -127,7 +127,6 @@ export default function App() {
         </div>
       </main>
       <nav className="mobile-nav" aria-label="手机导航">{navigation.map(item => <a key={item.page} className={`mobile-nav-item ${route.page === item.page ? 'active' : ''}`} aria-current={route.page === item.page ? 'page' : undefined} href={routeHref(item.page, route.month)}><item.icon size={22} strokeWidth={1.8} aria-hidden="true" /><span>{item.short}</span></a>)}</nav>
-      <ViewportDiagnostics loading={sourceController.initialLoading} ready={sourceController.real} settings={route.page === 'settings'} reload={() => { window.location.hash = routeHref('overview', route.month); window.location.reload() }} />
       {sourceOpen && <div className="modal-backdrop" onClick={() => setSourceOpen(false)}><section className="drawer source-drawer" role="dialog" aria-modal="true" aria-labelledby="source-title" onClick={e => e.stopPropagation()}><header className="drawer-header"><h2 id="source-title">{ledger.title}</h2><button className="icon-button" autoFocus onClick={() => setSourceOpen(false)} aria-label="关闭账本原文"><X size={20} /></button></header>{sourceFiles.length > 1 && <label className="source-file-selector">账本源文件<select aria-label="账本源文件" value={sourceFileIndex} onChange={event => setSourceFileIndex(Number(event.target.value))}>{sourceFiles.map((file, index) => <option key={file.path} value={index}>{file.path}</option>)}</select></label>}{hidden ? <div className="empty-state"><EyeOff size={24} /><p>金额已隐藏</p><button className="button" onClick={() => setHidden(false)}>显示金额</button></div> : <pre className="source-code">{sourceFiles[sourceFileIndex]?.content ?? ledger.source}</pre>}</section></div>}
       <span className="sr-only" aria-live="polite">{hidden ? '金额已隐藏' : ''}</span>
     </div>
