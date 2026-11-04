@@ -10,7 +10,7 @@ import { startExpense, expenseStatus } from '../cloud/record-expense'
 import type { SourceSnapshot } from '../src/lib/source-client'
 
 const id = '11111111-1111-4111-8111-111111111111'
-const draft = { id, date: '2026-11-05', amount: '23.40', currency: 'CNY', payment: 'Assets:Bank', category: 'Expenses:Food', description: '午餐 "米饭"' }
+const draft = { id, date: '2026-11-05', amount: '23.40', currency: 'CNY', payment: 'Assets:Bank', category: 'Expenses:Food', payee: '支付宝', description: '午餐 "米饭"' }
 const base = `2026-01-01 open Assets:Bank CNY\n2026-01-01 open Expenses:Food CNY\n2026-01-01 open Equity:Opening CNY\n2026-01-02 * "Opening"\n  Assets:Bank 100 CNY\n  Equity:Opening -100 CNY\n`
 let root = ''
 afterEach(async () => { if (root) await rm(root, { recursive: true, force: true }); root = '' })
@@ -22,11 +22,19 @@ describe('validated GitHub expense recording', () => {
     expect(await recordExpense(root, 'main.beancount', draft)).toEqual({ created: true, file: 'transactions/2026/11.beancount' })
     const ledger = await loadOfficialLedger(join(root, 'main.beancount'), { sourceRoot: root })
     const tx = ledger.transactions.find(row => row.date === draft.date)!
+    expect(tx.payee).toBe(draft.payee)
     expect(tx.narration).toBe(draft.description)
     expect(tx.postings.map(posting => [posting.account, posting.amount, posting.currency])).toEqual([['Expenses:Food', '23.40', 'CNY'], ['Assets:Bank', '-23.40', 'CNY']])
     expect(await recordExpense(root, 'main.beancount', draft)).toEqual({ created: false, file: '' })
     expect((await readFile(join(root, 'main.beancount'), 'utf8')).match(/include "transactions\/2026\/11.beancount"/g)).toHaveLength(1)
     expect((await readFile(join(root, 'transactions/2026/11.beancount'), 'utf8')).match(/countwell_id/g)).toHaveLength(1)
+  })
+  it('accepts previously queued requests without a payee', async () => {
+    await fixture()
+    const { payee: _payee, ...previousDraft } = draft
+    await recordExpense(root, 'main.beancount', previousDraft)
+    const ledger = await loadOfficialLedger(join(root, 'main.beancount'), { sourceRoot: root })
+    expect(ledger.transactions.find(row => row.date === draft.date)?.narration).toBe(draft.description)
   })
   it('respects existing wildcard includes without adding a duplicate include', async () => {
     await fixture('include "transactions/2026/*.beancount"\n')
@@ -43,7 +51,7 @@ describe('validated GitHub expense recording', () => {
   it('rejects malformed input, unavailable accounts and unsupported currencies', async () => {
     await fixture()
     const ledger = await loadOfficialLedger(join(root, 'main.beancount'), { sourceRoot: root })
-    for (const change of [{ amount: '0' }, { amount: '1\n2026-01-01' }, { amount: '2.345' }, { date: '2026-02-30' }, { description: 'a\nb' }, { category: 'Assets:Bank' }, { payment: 'Assets:Missing' }, { currency: 'USD' }]) {
+    for (const change of [{ amount: '0' }, { amount: '1\n2026-01-01' }, { amount: '2.345' }, { date: '2026-02-30' }, { description: 'a\nb' }, { payee: 'a\nb' }, { category: 'Assets:Bank' }, { payment: 'Assets:Missing' }, { currency: 'USD' }]) {
       expect(() => validateExpense({ ...draft, ...change }, ledger)).toThrow()
     }
   })
