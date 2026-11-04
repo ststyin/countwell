@@ -37,7 +37,8 @@ describe('credit card spending drilldown', () => {
   it('shows only cards with activity, including a refund-only card, and links to the matching period', () => {
     const html = renderToStaticMarkup(<AccountFlowPanel ledger={ledger} month="2026-11" cycle={cycle} mode="expense" />)
     const cards = html
-    expect(cards).toContain('支出账户')
+    expect(cards).toContain('aria-label="支出账户"')
+    expect(cards).not.toContain('<h2')
     expect(cards).toContain('class="stat-card drilldown-card payment-spending-card"')
     expect(cards).not.toContain('信用卡消费')
     expect(cards).toContain('CreditCard:CMB:Visa')

@@ -48,8 +48,7 @@ export default function OverviewPage({ ledger, month, currency, cycle, onNavigat
 export function AccountFlowPanel({ ledger, month, cycle, mode }: { ledger: Ledger; month: string; cycle?: BillingCycle; mode: 'income' | 'expense' }) {
   const rows = mode === 'income' ? getReceivingAccountIncome(ledger, month, cycle) : getPaymentAccountSpending(ledger, month, cycle)
   const labels = accountLabels(ledger.accounts)
-  return <section className="payment-spending" id="overview-account-breakdown" aria-labelledby="payment-spending-title">
-    <h2 id="payment-spending-title">{mode === 'income' ? '收入账户' : '支出账户'}</h2>
+  return <section className="payment-spending" id="overview-account-breakdown" aria-label={mode === 'income' ? '收入账户' : '支出账户'}>
     {rows.length ? <div className="payment-spending-grid">{rows.map(row => {
       const Icon = ledger.accounts.find(account => account.name === row.account)?.kind === 'liability' ? CreditCard : Wallet
       const filters = mode === 'income' ? { account: row.account, incomeCurrency: row.currency } : { account: row.account, paymentCurrency: row.currency }

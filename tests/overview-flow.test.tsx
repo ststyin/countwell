@@ -57,7 +57,8 @@ describe('overview income and expense account drilldown', () => {
       ['Income reversal', '50', 'out'], ['Split salary', '600', 'in'],
     ])
     const panel = renderToStaticMarkup(<AccountFlowPanel ledger={ledger} month="2026-11" cycle={cycle} mode="income" />)
-    expect(panel).toContain('收入账户')
+    expect(panel).toContain('aria-label="收入账户"')
+    expect(panel).not.toContain('<h2')
     expect(panel).toContain('550.00')
     expect(panel).toContain('400.00')
     expect(panel).not.toContain('Unused')
