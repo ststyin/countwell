@@ -1,9 +1,11 @@
 import type { SourceSnapshot } from '../src/lib/source-client'
 import { authConfig, csrfToken, expiredCookie, finishGitHubLogin, oauthFailure, OAUTH_COOKIE, privateHeaders, SESSION_COOKIE, sessionFromRequest, startGitHubLogin, validCsrf } from './auth'
 import type { CloudAuthEnv } from './auth'
+import { expenseStatus, RecordingError, startExpense } from './record-expense'
 
 export interface CloudEnv extends CloudAuthEnv {
   ASSETS: { fetch(request: Request): Promise<Response> }
+  COUNTWELL_GITHUB_ACTIONS_TOKEN?: string
 }
 
 function json(value: unknown, status = 200): Response {
@@ -51,11 +53,16 @@ export function createCloudApp(getSnapshot: () => SourceSnapshot, fetcher: typeo
         response.headers.append('Set-Cookie', expiredCookie(OAUTH_COOKIE))
         return response
       }
+      if (path === '/api/expenses' && request.method === 'POST') return json(await startExpense(request, getSnapshot(), session.uid, env.COUNTWELL_GITHUB_ACTIONS_TOKEN, fetcher), 202)
+      if (path === '/api/expenses/status' && request.method === 'GET') return json(await expenseStatus(url.searchParams.get('id') ?? '', getSnapshot(), session.uid, env.COUNTWELL_GITHUB_ACTIONS_TOKEN, fetcher))
       if (path === '/api/ledger/status' && request.method === 'GET') return json(getSnapshot().status)
       if (path === '/api/ledger/snapshot' && request.method === 'GET') return json(getSnapshot())
       if (path === '/api/ledger/reload' && request.method === 'POST') return json(getSnapshot())
       if (['/api/ledger/source', '/api/ledger/connect'].includes(path)) return failure('CLOUD_READ_ONLY', '云端账本仅支持查看。', 405)
       return failure('NOT_FOUND', '接口不存在。', 404)
-    } catch { return failure('CLOUD_UNAVAILABLE', '账本服务暂时不可用。', 503) }
+    } catch (error) {
+      if (error instanceof RecordingError) return failure('RECORDING_ERROR', error.message, error.status)
+      return failure('CLOUD_UNAVAILABLE', '账本服务暂时不可用。', 503)
+    }
   } }
 }

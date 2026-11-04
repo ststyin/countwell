@@ -376,3 +376,20 @@ describe('private cloud login and snapshot interface', () => {
     expect(await response.text()).not.toContain('SYNTHETIC_PRIVATE_DIAGNOSTIC')
   })
 })
+
+describe('recording endpoint protection', () => {
+  it('rejects anonymous and cross-site writes before dispatching a workflow', async () => {
+    const context = setup()
+    context.env.COUNTWELL_GITHUB_ACTIONS_TOKEN = 'fixture-actions-token'
+    const anonymous = await context.app.fetch(request('/api/expenses', { method: 'POST', body: '{}' }), context.env)
+    expect(anonymous.status).toBe(401)
+    const { sessionCookie } = await signIn(context)
+    const { csrf } = await session(context, sessionCookie)
+    context.github.mockClear()
+    const crossSite = await context.app.fetch(request('/api/expenses', { method: 'POST', headers: { Cookie: sessionCookie, Origin: 'https://evil.example', 'X-Countwell-Token': csrf }, body: '{}' }), context.env)
+    expect(crossSite.status).toBe(403)
+    const noCsrf = await context.app.fetch(request('/api/expenses', { method: 'POST', headers: { Cookie: sessionCookie, Origin: origin }, body: '{}' }), context.env)
+    expect(noCsrf.status).toBe(403)
+    expect(context.github).not.toHaveBeenCalled()
+  })
+})
