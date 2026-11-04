@@ -23,7 +23,7 @@ export function validateExpense(input: unknown, ledger: Ledger): ExpenseDraft {
   if (d.currency !== 'CNY') throw new Error('暂时只支持人民币记账。')
   if (typeof d.payment !== 'string' || !ledger.accounts.some(a => a.name === d.payment && (a.kind === 'asset' || a.kind === 'liability'))) throw new Error('请选择有效的支付账户。')
   if (typeof d.category !== 'string' || !ledger.accounts.some(a => a.name === d.category && a.kind === 'expense')) throw new Error('请选择有效的支出分类。')
-  if (d.payee !== undefined && (typeof d.payee !== 'string' || !d.payee.trim() || d.payee.length > 200 || /[\u0000-\u001f\u007f]/.test(d.payee))) throw new Error('请填写不超过 200 字的交易对象。')
+  if (d.payee !== undefined && (typeof d.payee !== 'string' || !d.payee.trim() || d.payee.length > 200 || /[\u0000-\u001f\u007f]/.test(d.payee))) throw new Error('请填写不超过 200 字的交易方式。')
   if (typeof d.description !== 'string' || !d.description.trim() || d.description.length > 200 || /[\u0000-\u001f\u007f]/.test(d.description)) throw new Error('请填写不超过 200 字的描述。')
   return { id: d.id.toLowerCase(), date: d.date, amount: d.amount, currency: 'CNY', payment: d.payment, category: d.category, ...(typeof d.payee === 'string' ? { payee: d.payee.trim() } : {}), description: d.description.trim() }
 }

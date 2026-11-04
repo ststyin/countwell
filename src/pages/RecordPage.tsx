@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, LoaderCircle } from 'lucide-react'
 import type { Ledger } from '../domain/types'
 import type { ExpenseDraft } from '../recording/expense'
+import { isInvestmentAccount } from '../domain/reports'
 import { validateExpense } from '../recording/expense'
 import { accountLabels } from '../lib/accountLabels'
 import { sourceRequest } from '../lib/source-client'
@@ -26,7 +27,7 @@ export default function RecordPage({ ledger }: { ledger: Ledger }) {
   const generation = useRef(0)
   useEffect(() => () => { generation.current++ }, [])
   const labels = accountLabels(ledger.accounts)
-  const payments = ledger.accounts.filter(a => (a.kind === 'asset' && a.role !== 'investment') || a.kind === 'liability')
+  const payments = ledger.accounts.filter(a => (a.kind === 'asset' && a.role === 'cash' && !isInvestmentAccount(a.name)) || a.kind === 'liability')
   const categories = ledger.accounts.filter(a => a.kind === 'expense')
   const busy = phase === 'submitting' || phase === 'pending'
 
@@ -66,7 +67,7 @@ export default function RecordPage({ ledger }: { ledger: Ledger }) {
         <label><span>支付方式</span><select value={payment} onChange={event => setPayment(event.target.value)} disabled={phase !== 'editing'} required><option value="">选择支付方式</option>{payments.map(account => <option key={account.name} value={account.name}>{labels.get(account.name) ?? account.label}</option>)}</select></label>
         <label><span>支出分类</span><select value={category} onChange={event => setCategory(event.target.value)} disabled={phase !== 'editing'} required><option value="">选择分类</option>{categories.map(account => <option key={account.name} value={account.name}>{labels.get(account.name) ?? account.label}</option>)}</select></label>
         <label><span>日期</span><input type="date" value={date} onChange={event => setDate(event.target.value)} disabled={phase !== 'editing'} required /></label>
-        <label><span>交易对象</span><input value={payee} onChange={event => setPayee(event.target.value)} maxLength={200} placeholder="例如：支付宝" disabled={phase !== 'editing'} required /></label>
+        <label><span>交易方式</span><input value={payee} onChange={event => setPayee(event.target.value)} maxLength={200} placeholder="例如：支付宝" disabled={phase !== 'editing'} required /></label>
         <label><span>描述</span><input value={description} onChange={event => setDescription(event.target.value)} maxLength={200} placeholder="这笔钱花在哪儿了？" disabled={phase !== 'editing'} required /></label>
       </div>
       {message && <p className="record-message" role="alert">{message}</p>}
