@@ -3,7 +3,7 @@ import type { TransactionKind } from '../domain/types'
 import { billingMonthForDate } from '../domain/period'
 
 export type Page = 'overview' | 'transactions' | 'accounts' | 'settings'
-export interface Route { page: Page; month: string; search: string; kind: TransactionKind | 'all'; account: string; allTime?: boolean; date?: string; section?: 'cash' | 'debt'; cardCurrency?: string; paymentCurrency?: string }
+export interface Route { page: Page; month: string; search: string; kind: TransactionKind | 'all'; account: string; allTime?: boolean; date?: string; section?: 'cash' | 'debt'; cardCurrency?: string; paymentCurrency?: string; incomeCurrency?: string }
 const pages = new Set(['overview', 'transactions', 'accounts', 'settings'])
 const kinds = new Set(['all', 'income', 'expense', 'refund', 'transfer', 'investment'])
 
@@ -17,6 +17,7 @@ export function parseRoute(hash: string, defaultMonth = '2026-10'): Route {
   const section = params.get('section')
   const cardCurrency = params.get('card_currency') ?? ''
   const paymentCurrency = params.get('payment_currency') ?? ''
+  const incomeCurrency = params.get('income_currency') ?? ''
   const validCurrency = (value: string) => value.length <= 256 && /^(?:[A-Z][A-Z0-9'._-]*|\/[A-Z0-9'._-]*[A-Z][A-Z0-9'._-]*)$/.test(value)
   return {
     page: pages.has(path) ? path as Page : 'overview',
@@ -29,6 +30,7 @@ export function parseRoute(hash: string, defaultMonth = '2026-10'): Route {
     ...(section === 'cash' || section === 'debt' ? { section } : {}),
     ...(path === 'transactions' && params.get('account') && validCurrency(cardCurrency) ? { cardCurrency } : {}),
     ...(path === 'transactions' && params.get('account') && validCurrency(paymentCurrency) ? { paymentCurrency } : {}),
+    ...(path === 'transactions' && params.get('account') && validCurrency(incomeCurrency) ? { incomeCurrency } : {}),
   }
 }
 
@@ -42,6 +44,7 @@ export function routeHref(page: Page, month: string, filters: Partial<Route> = {
   if (filters.section) params.set('section', filters.section)
   if (page === 'transactions' && filters.account && filters.cardCurrency) params.set('card_currency', filters.cardCurrency)
   if (page === 'transactions' && filters.account && filters.paymentCurrency) params.set('payment_currency', filters.paymentCurrency)
+  if (page === 'transactions' && filters.account && filters.incomeCurrency) params.set('income_currency', filters.incomeCurrency)
   return `#${page}?${params}`
 }
 

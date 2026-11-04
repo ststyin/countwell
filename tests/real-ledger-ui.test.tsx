@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import OverviewPage from '../src/pages/OverviewPage'
+import OverviewPage, { AccountFlowPanel } from '../src/pages/OverviewPage'
 import { DisplayContext } from '../src/components/ui'
 import type { Ledger } from '../src/domain/types'
 
@@ -16,10 +16,10 @@ describe('official financial snapshot presentation', () => {
       ] }],
     }
     const html = renderToStaticMarkup(<DisplayContext.Provider value={{ hidden: false, currency: 'CNY' }}><OverviewPage ledger={ledger} month="2026-10" currency="CNY" today="2026-10-01" onNavigate={() => {}} /></DisplayContext.Provider>)
-    const summary = html.slice(html.indexOf('class="flow-grid"'), html.indexOf('class="payment-spending"'))
+    const summary = html.slice(html.indexOf('class="flow-grid"'), html.indexOf('class="dashboard-grid"'))
     expect(summary.match(/>—</g)).toHaveLength(3)
     expect(summary).not.toContain('0.00')
-    const payment = html.slice(html.indexOf('class="payment-spending"'), html.indexOf('class="dashboard-grid"'))
+    const payment = renderToStaticMarkup(<AccountFlowPanel ledger={ledger} month="2026-10" mode="expense" />)
     expect(payment).toContain('金额待确认')
     expect(payment).not.toContain('20.00')
     expect(html).toContain('本月收支暂不可汇总')

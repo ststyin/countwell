@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { getPaymentAccountSpending, getPaymentAccountSpendingTransactions, parseDemoLedger } from '../src/domain'
 import { parseRoute } from '../src/lib/route'
-import OverviewPage from '../src/pages/OverviewPage'
+import { AccountFlowPanel } from '../src/pages/OverviewPage'
 import TransactionsPage from '../src/pages/TransactionsPage'
 
 const ledger = parseDemoLedger(`
@@ -58,8 +58,8 @@ describe('payment account spending', () => {
   })
 
   it('uses the same cards as income and surplus, linking an account to its exact spending and refunds', () => {
-    const html = renderToStaticMarkup(<OverviewPage ledger={ledger} month="2026-11" cycle={cycle} currency="CNY" onNavigate={() => {}} />)
-    const section = html.slice(html.indexOf('class="payment-spending"'), html.indexOf('class="dashboard-grid"'))
+    const html = renderToStaticMarkup(<AccountFlowPanel ledger={ledger} month="2026-11" cycle={cycle} mode="expense" />)
+    const section = html
     expect(section).toContain('Alipay')
     expect(section).toContain('110.00')
     expect(section).toContain('CreditCard:Visa')

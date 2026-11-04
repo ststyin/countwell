@@ -135,9 +135,10 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 .month-input::-webkit-calendar-picker-indicator { opacity: .6; width: 13px; }
 .money { display: inline-block; font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; letter-spacing: -.3px; overflow-wrap: anywhere; }
 .currency-symbol { display: inline; font-size: .58em; margin-right: 5px; color: var(--text-secondary); font-weight: 400; vertical-align: .06em; }
-.flow-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) repeat(2, minmax(0, 1fr)); gap: 14px; }
+.flow-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .spend-card, .stat-card { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 142px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-.spend-card { background: linear-gradient(130deg, var(--surface), var(--surface-soft)); }
+.spend-card { grid-column: 1 / -1; background: linear-gradient(130deg, var(--surface), var(--surface-soft)); }
+.flow-choice[aria-expanded="true"] { border-color: var(--accent); background: var(--surface-soft); }
 .stat-label { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 12px; font-weight: 400; }
 .stat-label svg { width: 16px; height: 16px; }
 .hero-amount { display: block; margin-top: 13px; font-size: clamp(32px, 3.1vw, 42px); line-height: 1.18; letter-spacing: -1.3px; font-weight: 450; }
@@ -363,7 +364,7 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .topbar { padding-left: 28px; padding-right: 28px; }
   .page-content { padding-left: 28px; padding-right: 28px; }
   .spend-card, .stat-card { padding: 17px; }
-  .flow-grid { grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .flow-grid { gap: 12px; }
   .stat-amount { font-size: 25px; }
   .hero-amount { font-size: 36px; }
   .dashboard-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; }

@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { parseDemoLedger } from '../src/domain'
 import { parseRoute } from '../src/lib/route'
-import OverviewPage from '../src/pages/OverviewPage'
+import { AccountFlowPanel } from '../src/pages/OverviewPage'
 import TransactionsPage from '../src/pages/TransactionsPage'
 
 const ledger = parseDemoLedger(`
@@ -35,8 +35,8 @@ const cycle = { mode: 'custom', day: 25, boundary: 'start' } as const
 
 describe('credit card spending drilldown', () => {
   it('shows only cards with activity, including a refund-only card, and links to the matching period', () => {
-    const html = renderToStaticMarkup(<OverviewPage ledger={ledger} month="2026-11" currency="CNY" cycle={cycle} today="2026-12-01" onNavigate={() => {}} />)
-    const cards = html.slice(html.indexOf('class="payment-spending"'), html.indexOf('dashboard-grid'))
+    const html = renderToStaticMarkup(<AccountFlowPanel ledger={ledger} month="2026-11" cycle={cycle} mode="expense" />)
+    const cards = html
     expect(cards).toContain('支出账户')
     expect(cards).toContain('class="stat-card drilldown-card payment-spending-card"')
     expect(cards).not.toContain('信用卡消费')
@@ -75,8 +75,8 @@ describe('credit card spending drilldown', () => {
   Assets:Bank 50 CNY
   Liabilities:CreditCard:CMB:Visa -150 CNY
 `)
-    const overview = renderToStaticMarkup(<OverviewPage ledger={mixed} month="2026-11" currency="CNY" cycle={cycle} today="2026-12-01" onNavigate={() => {}} />)
-    const cards = overview.slice(overview.indexOf('class="payment-spending"'), overview.indexOf('dashboard-grid'))
+    const overview = renderToStaticMarkup(<AccountFlowPanel ledger={mixed} month="2026-11" cycle={cycle} mode="expense" />)
+    const cards = overview
     expect(cards).toContain('金额待确认')
     expect(cards).not.toContain('150.00')
     const route = parseRoute('#transactions?month=2026-11&account=Liabilities%3ACreditCard%3ACMB%3AVisa&card_currency=CNY')

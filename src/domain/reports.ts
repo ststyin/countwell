@@ -233,6 +233,77 @@ export function getPaymentAccountSpendingTransactions(ledger: Ledger, query: Tra
     }).reverse();
 }
 
+type IncomeContribution = { account: string; currency: string; amount: Decimal | null; direction: 'in' | 'out' };
+
+/** Attribute income to financial accounts without treating transfers or expense refunds as income. */
+function receivingContributions(ledger: Ledger, transaction: LedgerTransaction, D: typeof Decimal): IncomeContribution[] {
+  const incomes = transaction.postings.filter(posting => accountKind(ledger, posting.account) === 'income');
+  if (!incomes.length) return [];
+  const financial = transaction.postings.filter(posting => ['asset', 'liability'].includes(accountKind(ledger, posting.account) ?? ''));
+  const groups = new Map<string, typeof financial>();
+  for (const posting of financial) {
+    const key = JSON.stringify([posting.account, posting.currency]);
+    groups.set(key, [...(groups.get(key) ?? []), posting]);
+  }
+  const entries = [...groups.values()].map(postings => ({
+    account: postings[0].account, currency: postings[0].currency, postings,
+    change: postings.reduce((sum, posting) => sum.plus(posting.amount), new D(0)),
+  }));
+  const result: IncomeContribution[] = [];
+  for (const entry of entries) {
+    const mixedSigns = entry.postings.some(posting => new D(posting.amount).isNegative()) && entry.postings.some(posting => new D(posting.amount).isPositive());
+    if (entry.change.isZero() && !mixedSigns) continue;
+    const sameCurrency = incomes.filter(posting => posting.currency === entry.currency);
+    const income = sameCurrency.reduce((sum, posting) => sum.minus(posting.amount), new D(0));
+    const annotated = [...incomes, ...entry.postings].some(posting => posting.cost || posting.price);
+    if (sameCurrency.length && !income.isZero() && income.isPositive() !== entry.change.isPositive() && !annotated && !mixedSigns) continue;
+    const relatedTotal = entries.filter(other => other.currency === entry.currency && other.change.isPositive() === entry.change.isPositive())
+      .reduce((sum, other) => sum.plus(other.change.abs()), new D(0));
+    const hasExpenses = transaction.postings.some(posting => accountKind(ledger, posting.account) === 'expense');
+    const ambiguous = annotated || mixedSigns || !sameCurrency.length || income.isZero() || relatedTotal.gt(income.abs()) || hasExpenses;
+    result.push({ account: entry.account, currency: entry.currency, amount: ambiguous ? null : entry.change, direction: entry.change.isNegative() ? 'out' : 'in' });
+  }
+  return result;
+}
+
+/** Net income received by each financial account, in each original currency. */
+export function getReceivingAccountIncome(ledger: Ledger, month: string, cycle?: BillingCycle): PaymentAccountSpending[] {
+  const { D } = arithmetic(ledger);
+  const { start, end } = reportPeriod(month, cycle);
+  const totals = new Map<string, { account: string; currency: string; amount: Decimal; unavailable: boolean; transactionCount: number }>();
+  for (const transaction of ledger.transactions) {
+    if (transaction.date < start || transaction.date > end) continue;
+    for (const item of receivingContributions(ledger, transaction, D)) {
+      const key = JSON.stringify([item.account, item.currency]);
+      const row = totals.get(key) ?? { account: item.account, currency: item.currency, amount: new D(0), unavailable: false, transactionCount: 0 };
+      if (item.amount === null) row.unavailable = true;
+      else row.amount = row.amount.plus(item.amount);
+      row.transactionCount++;
+      totals.set(key, row);
+    }
+  }
+  return [...totals.values()].map(row => ({ account: row.account, currency: row.currency, amount: row.unavailable ? null : text(row.amount), transactionCount: row.transactionCount }))
+    .sort((a, b) => a.account.localeCompare(b.account) || (a.currency === 'CNY' ? -1 : b.currency === 'CNY' ? 1 : a.currency.localeCompare(b.currency)));
+}
+
+/** The matching income and reversals behind an account's summary. */
+export function getReceivingAccountIncomeTransactions(ledger: Ledger, query: TransactionQuery & { account: string; currency: string }): Activity[] {
+  const { D } = arithmetic(ledger);
+  const { start, end } = query.month === undefined ? { start: '0001-01-01', end: '9999-12-31' } : reportPeriod(query.month, query.cycle);
+  const search = query.search?.toLowerCase() ?? '';
+  return ledger.transactions.filter(transaction => transaction.date >= start && transaction.date <= end && (!query.date || transaction.date === query.date))
+    .flatMap(transaction => {
+      const item = receivingContributions(ledger, transaction, D).find(value => value.account === query.account && value.currency === query.currency);
+      if (!item) return [];
+      const amounts = activityAmounts(ledger, transaction, D);
+      const row = activity(ledger, transaction, amounts, query.currency, 'income');
+      const result: Activity = { ...row, kind: 'income', direction: item.direction, currency: item.currency,
+        category: item.direction === 'out' ? '收入冲回' : row.category,
+        amount: item.amount === null ? row.amount : text(item.amount.abs()), amountUnavailable: item.amount === null, amountBasis: 'units', amounts: [] };
+      return !search || `${result.payee}\n${result.narration}\n${result.category}\n${result.accountLabel}\n${result.postings.map(posting => label(ledger, posting.account)).join('\n')}`.toLowerCase().includes(search) ? [result] : [];
+    }).reverse();
+}
+
 /** Preserve older credit-card links while using the same allocation rules. */
 export function getCreditCardSpending(ledger: Ledger, month: string, cycle?: BillingCycle): PaymentAccountSpending[] {
   return getPaymentAccountSpending(ledger, month, cycle).filter(row => isCreditCard(ledger, row.account));
