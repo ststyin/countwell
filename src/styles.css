@@ -818,8 +818,10 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .record-amount > div > span { font-size: 23px; color: var(--text-secondary); }
 .record-amount input { width: 100%; border: 0; outline: 0; background: transparent; font-size: 38px; padding: 6px 0 12px; font-variant-numeric: tabular-nums; }
 .record-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.record-fields label { min-width: 0; }
-.record-fields input, .record-fields select { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); }
+.record-fields label { display: block; min-width: 0; max-width: 100%; }
+.record-fields input, .record-fields select { display: block; width: 100%; min-width: 0; max-width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); }
+.record-fields input[type='date'] { -webkit-appearance: none; appearance: none; }
+.record-fields input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .record-message { color: var(--danger); }
 .record-progress { color: var(--text-secondary); }
 .record-submit { width: 100%; min-height: 46px; justify-content: center; }
@@ -827,4 +829,4 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .record-success { display: grid; justify-items: center; gap: 15px; padding: 32px 0; text-align: center; }
 .record-success p { color: var(--text-secondary); }
 .record-success-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 18px; color: var(--expense); background: var(--expense-soft); }
-@media (max-width: 760px) { .record-fields { grid-template-columns: 1fr; gap: 14px; } .record-panel { padding: 18px; } }
+@media (max-width: 760px) { .record-fields { grid-template-columns: minmax(0, 1fr); gap: 14px; } .record-panel { padding: 18px; } }
