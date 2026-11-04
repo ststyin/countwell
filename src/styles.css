@@ -19,6 +19,8 @@
   --danger: #eba3a0;
   --shadow: 0 18px 65px #00000028;
   --radius: 18px;
+  --field-height: 42px;
+  --field-radius: 10px;
   --glass-solid: #252a27;
   --glass-tint: rgb(24 29 26 / 8%);
   --glass-edge: rgb(255 255 255 / 18%);
@@ -472,13 +474,11 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .transactions-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .search-field { position: relative; flex: 1 1 240px; display: flex; align-items: center; min-width: 0; }
 .search-icon { position: absolute; left: 14px; color: var(--muted); pointer-events: none; }
-.search-field > input { width: 100%; min-height: 46px; padding: 11px 43px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); color: var(--text); font-size: 12px; }
-.search-field > input:focus { background: var(--surface); border-color: var(--accent); }
 .search-field > .icon-button { position: absolute; right: 6px; min-width: 32px; width: 32px; height: 32px; border: 0; background: transparent; }
 .search-field input::-webkit-search-cancel-button { display: none; }
 .account-filter { position: relative; display: inline-flex; align-items: center; min-width: 175px; color: var(--muted); }
 .account-filter > svg { position: absolute; left: 13px; pointer-events: none; }
-.account-filter > select { width: 100%; max-width: 240px; min-height: 46px; padding: 10px 29px 10px 37px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); color: var(--text-secondary); font-size: 12px; }
+.account-filter > select { max-width: 240px; }
 .filter-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; padding: 20px 0; border-bottom: 1px solid var(--line-soft); }
 .filter-tabs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .filter-chip { min-height: 38px; padding: 8px 12px; color: var(--muted); border: 1px solid transparent; border-radius: 9px; font-size: 11px; }
@@ -563,7 +563,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .settings-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .billing-cycle-controls { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; }
 .billing-cycle-controls > label { display: flex; flex: 1 1 110px; flex-direction: column; gap: 7px; min-width: 0; color: var(--text-secondary); font-size: 12px; }
-.billing-cycle-controls select { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-soft); color: var(--text); font-size: 13px; }
 .billing-cycle-preview { margin-top: 13px; color: var(--muted); font-size: 11px; line-height: 1.65; }
 .billing-cycle-preview > span { margin-right: 8px; }
 .billing-cycle-preview > strong { color: var(--text-secondary); font-weight: 500; }
@@ -635,10 +634,8 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .transactions-panel { padding-top: 15px; }
   .transactions-toolbar { gap: 10px; }
   .search-field { flex-basis: 100%; }
-  .search-field > input { min-height: 46px; padding-left: 40px; padding-right: 38px; font-size: 16px; }
-  .search-field > input::placeholder { font-size: 12px; }
   .account-filter { width: 100%; }
-  .account-filter > select { max-width: none; min-height: 44px; font-size: 16px; padding-left: 37px; }
+  .account-filter > select { max-width: none; }
   .filter-row { gap: 9px; padding: 13px 0 10px; }
   .filter-tabs { gap: 4px; }
   .filter-chip { min-height: 40px; font-size: 11px; padding-left: 10px; padding-right: 10px; }
@@ -671,7 +668,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .position-metrics > div > .money, .position-metrics > div > span > .money { font-size: 14px; }
   .account-note { font-size: 11px; line-height: 1.85; }
   .settings-layout { grid-template-columns: minmax(0, 1fr); gap: 14px; }
-  .billing-cycle-controls select { font-size: 16px; }
   .setting-row { gap: 13px; padding: 19px 0; }
   .setting-row strong { font-size: 13px; }
   .setting-row p { font-size: 11px; }
@@ -755,7 +751,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .source-tabs button { min-height: 44px; }
 .source-form { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 18px; }
 .source-form > label:not(.source-check) { display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-secondary); min-width: 0; }
-.source-form input:not([type='checkbox']), .source-file-selector select { display: block; width: 100%; min-width: 0; padding: 12px 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 14px; }
 .source-form .source-wide { grid-column: 1 / -1; }
 .source-hint { color: var(--muted); font-size: 12px; line-height: 1.7; }
 .source-check { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; color: var(--text-secondary); font-size: 13px; padding: 6px 0; }
@@ -767,7 +762,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .source-connected { display: flex; align-items: flex-start; gap: 11px; padding: 16px; margin: 16px 0; border-radius: 12px; background: var(--expense-soft); color: var(--expense); }
 .source-connected p { margin-top: 4px; font-size: 12px; overflow-wrap: anywhere; }
 .source-file-selector { display: flex; flex-direction: column; gap: 8px; margin-top: 22px; padding: 0 26px 18px; color: var(--text-secondary); font-size: 13px; }
-.source-file-selector select { font-size: 13px; }
 .source-card strong, .topbar-meta { overflow-wrap: anywhere; }
 .disclosure { margin-top: 18px; padding-top: 4px; border-top: 1px solid var(--line-soft); }
 .disclosure > summary { display: flex; align-items: center; gap: 7px; min-height: 40px; list-style: none; color: var(--muted); font-size: 12px; cursor: pointer; }
@@ -782,7 +776,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 @keyframes countwell-spin { to { transform: rotate(360deg); } }
 @media (max-width: 650px) {
   .source-form { grid-template-columns: minmax(0,1fr); }
-  .source-form input:not([type='checkbox']), .source-file-selector select { font-size: 16px; }
   .source-form .setting-actions { flex-wrap: wrap; }
   .source-file-selector { padding-left: 18px; padding-right: 18px; }
 }
@@ -819,8 +812,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .record-amount input { width: 100%; border: 0; outline: 0; background: transparent; font-size: 38px; padding: 6px 0 12px; font-variant-numeric: tabular-nums; }
 .record-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .record-fields label { display: block; min-width: 0; max-width: 100%; }
-.record-fields input, .record-fields select { display: block; width: 100%; min-width: 0; max-width: 100%; height: 48px; min-height: 48px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); font-size: 16px; line-height: 24px; }
-.record-fields select { -webkit-appearance: none; appearance: none; padding-right: 38px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23858d81' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px; }
 .record-fields input[type='date'] { -webkit-appearance: none; appearance: none; }
 .record-fields input[type='date']::-webkit-date-and-time-value { text-align: left; }
 .record-fields input[type='date']::-webkit-datetime-edit { padding: 0; }
@@ -832,3 +823,44 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .record-success p { color: var(--text-secondary); }
 .record-success-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 18px; color: var(--expense); background: var(--expense-soft); }
 @media (max-width: 760px) { .record-fields { grid-template-columns: minmax(0, 1fr); gap: 14px; } .record-panel { padding: 18px; } }
+
+/* Shared form controls: match across recording, transactions, and settings. */
+.record-fields input, .record-fields select,
+.search-field > input, .account-filter > select,
+.billing-cycle-controls select,
+.source-form input:not([type='checkbox']), .source-file-selector select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: var(--field-height);
+  min-height: var(--field-height);
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--field-radius);
+  background: var(--surface-soft);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 24px;
+}
+.record-fields input, .record-fields select { max-width: 100%; }
+.search-field > input { -webkit-appearance: none; appearance: none; padding-left: 40px; padding-right: 38px; }
+.record-fields select, .account-filter > select, .billing-cycle-controls select, .source-file-selector select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 38px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23858d81' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+}
+.account-filter > select { padding-left: 37px; }
+.record-fields input:focus, .record-fields select:focus,
+.search-field > input:focus, .account-filter > select:focus,
+.billing-cycle-controls select:focus,
+.source-form input:not([type='checkbox']):focus, .source-file-selector select:focus { background-color: var(--surface); border-color: var(--accent); }
+@media (max-width: 760px) {
+  .record-fields input, .record-fields select,
+  .search-field > input, .account-filter > select,
+  .billing-cycle-controls select,
+  .source-form input:not([type='checkbox']), .source-file-selector select { font-size: 16px; }
+}
