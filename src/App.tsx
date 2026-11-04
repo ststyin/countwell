@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, BookOpen, ChevronLeft, ChevronRight, Eye, EyeOff, LayoutDashboard, ListFilter, Settings2, Wallet, WifiOff, X } from 'lucide-react'
+import { ArrowUpRight, BookOpen, ChevronLeft, ChevronRight, Eye, EyeOff, LayoutDashboard, ListFilter, Plus, Settings2, Wallet, WifiOff, X } from 'lucide-react'
 import { DisplayContext, EmptyState } from './components/ui'
 import OverviewPage from './pages/OverviewPage'
 import TransactionsPage from './pages/TransactionsPage'
+import RecordPage from './pages/RecordPage'
 import AccountsPage from './pages/AccountsPage'
 import SettingsPage from './pages/SettingsPage'
 import { monthLabel, shiftMonth } from './lib/format'
@@ -22,6 +23,7 @@ import type { SourceSnapshot } from './lib/source-client'
 const navigation = [
   { page: 'overview', title: '收支总览', short: '总览', icon: LayoutDashboard },
   { page: 'transactions', title: '交易记录', short: '交易', icon: ListFilter },
+  { page: 'record', title: '记账', short: '记账', icon: Plus },
   { page: 'accounts', title: '账户与资产', short: '账户', icon: Wallet },
   { page: 'settings', title: '偏好与账本', short: '设置', icon: Settings2 },
 ] as const
@@ -107,6 +109,8 @@ export default function App({ initialCloudSnapshot, cloudNavigationReady }: { in
     ? <OverviewPage ledger={ledger} month={route.month} currency={currency} cycle={cycle} onNavigate={go} />
     : route.page === 'transactions'
       ? <TransactionsPage ledger={ledger} route={route} currency={currency} cycle={cycle} onFilter={navigate} />
+      : route.page === 'record'
+        ? <RecordPage ledger={ledger} />
       : route.page === 'accounts'
         ? <AccountsPage ledger={ledger} currency={currency} section={route.section} onAccount={account => go('transactions', { account, allTime: true })} />
         : <SettingsPage ledger={ledger} month={route.month} cycle={cycle} onCycle={setCycle} hidden={hidden} onSource={openSource} controller={sourceController} />

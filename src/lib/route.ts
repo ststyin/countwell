@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import type { TransactionKind } from '../domain/types'
 import { billingMonthForDate } from '../domain/period'
 
-export type Page = 'overview' | 'transactions' | 'accounts' | 'settings'
+export type Page = 'overview' | 'transactions' | 'record' | 'accounts' | 'settings'
 export interface Route { page: Page; month: string; search: string; kind: TransactionKind | 'all'; account: string; allTime?: boolean; date?: string; section?: 'cash' | 'debt'; cardCurrency?: string; paymentCurrency?: string; incomeCurrency?: string }
-const pages = new Set(['overview', 'transactions', 'accounts', 'settings'])
+const pages = new Set(['overview', 'transactions', 'record', 'accounts', 'settings'])
 const kinds = new Set(['all', 'income', 'expense', 'refund', 'transfer', 'investment'])
 
 export function parseRoute(hash: string, defaultMonth = '2026-10'): Route {
