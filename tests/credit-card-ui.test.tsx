@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { parseDemoLedger } from '../src/domain'
+import { getOverview, parseDemoLedger } from '../src/domain'
 import { parseRoute } from '../src/lib/route'
 import { AccountFlowPanel } from '../src/pages/OverviewPage'
 import TransactionsPage from '../src/pages/TransactionsPage'
@@ -64,6 +64,40 @@ describe('credit card spending drilldown', () => {
     expect(summaries).not.toContain('Repayment')
     expect(summaries).not.toContain('Next period')
     expect(summaries).not.toContain('900.00')
+  })
+
+  it('shows a card charge recorded against income in both spending views', () => {
+    const offset = parseDemoLedger(`
+2026-01-01 open Assets:Bank
+2026-01-01 open Income:Sales
+2026-01-01 open Liabilities:CreditCard:CMB:Visa
+2026-08-08 * "Sale proceeds"
+  Income:Sales -120 CNY
+  Assets:Bank 120 CNY
+2026-08-08 * "Delivery fee"
+  Income:Sales 40.40 CNY
+  Liabilities:CreditCard:CMB:Visa -40.40 CNY
+2026-08-09 * "Repayment"
+  Assets:Bank -40.40 CNY
+  Liabilities:CreditCard:CMB:Visa 40.40 CNY
+`)
+    expect(getOverview(offset, '2026-08')).toMatchObject({ income: '79.6', expense: '0', surplus: '79.6' })
+
+    const overview = renderToStaticMarkup(<AccountFlowPanel ledger={offset} month="2026-08" mode="expense" />)
+    expect(overview).toContain('40.40')
+    const href = overview.match(/href="([^"]*CMB[^"]*)"/)?.[1]?.replaceAll('&amp;', '&')
+    expect(href).toBeTruthy()
+    const drilldown = parseRoute(href!)
+    const filtered = parseRoute('#transactions?month=2026-08&account=Liabilities%3ACreditCard%3ACMB%3AVisa&kind=expense')
+    for (const route of [drilldown, filtered]) {
+      const details = renderToStaticMarkup(<TransactionsPage ledger={offset} route={route} currency="CNY" onFilter={() => {}} />)
+      expect(details).toContain('1 笔记录')
+      expect(details).toContain('transaction-expense direction-out')
+      expect(details).toContain('Delivery fee')
+      expect(details).toMatch(/−<span class="money[^"]*">40\.40<\/span>/)
+      expect(details).toContain('Income:Sales')
+      expect(details).not.toContain('Repayment')
+    }
   })
 
   it('labels an ambiguous card share as unavailable rather than displaying a fabricated amount', () => {

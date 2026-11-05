@@ -16,7 +16,7 @@ export default function TransactionList({ transactions }: { transactions: Activi
     const primaryIndex = tx.amounts?.findIndex(amount => amount.amount === tx.amount && amount.currency === tx.currency && amount.direction === tx.direction && amount.kind === tx.kind && amount.basis === tx.amountBasis) ?? -1
     const otherAmounts = tx.amounts?.filter((_, index) => index !== primaryIndex) ?? []
     const usesWeight = tx.amountBasis === 'weight' || otherAmounts.some(amount => amount.basis === 'weight')
-    return <details className={`transaction-row transaction-${tx.kind} direction-${tx.direction}`} key={tx.id}>
+    return <details className={`transaction-row transaction-${tx.kind} direction-${tx.direction}`} key={`${tx.id}:${tx.currency}`}>
       <summary>
         <span className={`transaction-icon ${tx.kind}-icon`}><CategoryIcon name={tx.category} kind={tx.kind} size={19} /></span>
         <span className="transaction-info"><span className="transaction-title">{tx.narration.trim() || '无描述交易'}<span className="transaction-kind">{kindLabels[tx.kind]}</span>{tx.flag === '!' && <CircleAlert size={13} className="pending-indicator" aria-label="待核对" />}</span><span className="transaction-subtitle">{shortDate(tx.date)}<span className="mini-dot" />{label}{tx.amountBasis === 'weight' ? ' · 记账权重' : ''}</span></span>

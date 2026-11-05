@@ -163,10 +163,11 @@ function isCreditCard(ledger: Ledger, account: string): boolean {
 
 type PaymentContribution = { account: string; currency: string; amount: Decimal | null; direction: 'expense' | 'refund' };
 
-/** Attribute expense and refund legs to their financial accounts, excluding transfers. */
+/** Attribute charges and refunds to their payment accounts, excluding transfers. */
 function paymentContributions(ledger: Ledger, transaction: LedgerTransaction, D: typeof Decimal): PaymentContribution[] {
   const expenses = transaction.postings.filter(posting => accountKind(ledger, posting.account) === 'expense');
-  if (!expenses.length) return [];
+  const incomes = transaction.postings.filter(posting => accountKind(ledger, posting.account) === 'income');
+  if (!expenses.length && !incomes.length) return [];
   const paymentPostings = transaction.postings.filter(posting => ['asset', 'liability'].includes(accountKind(ledger, posting.account) ?? ''));
   const groups = new Map<string, typeof paymentPostings>();
   for (const posting of paymentPostings) {
@@ -181,16 +182,22 @@ function paymentContributions(ledger: Ledger, transaction: LedgerTransaction, D:
   for (const entry of entries) {
     const hasMixedSigns = entry.postings.some(posting => new D(posting.amount).isNegative()) && entry.postings.some(posting => new D(posting.amount).isPositive());
     if (entry.change.isZero() && !hasMixedSigns) continue;
-    const sameCurrency = expenses.filter(posting => posting.currency === entry.currency);
-    const expense = sameCurrency.reduce((sum, posting) => sum.plus(posting.amount), new D(0));
-    const hasAnnotations = [...expenses, ...entry.postings].some(posting => posting.cost || posting.price);
+    // A charge can reduce income in the ledger while increasing the card balance owed.
+    const cardIncomes = entry.change.lt(0) && isCreditCard(ledger, entry.account)
+      ? incomes.filter(posting => posting.currency === entry.currency) : [];
+    const incomeOffset = cardIncomes.reduce((sum, posting) => sum.plus(posting.amount), new D(0));
+    const charges = incomeOffset.gt(0) ? [...expenses, ...cardIncomes] : expenses;
+    if (!charges.length) continue;
+    const sameCurrency = charges.filter(posting => posting.currency === entry.currency);
+    const netCharge = sameCurrency.reduce((sum, posting) => sum.plus(posting.amount), new D(0));
+    const hasAnnotations = [...charges, ...entry.postings].some(posting => posting.cost || posting.price);
     const unmatchedCurrency = !sameCurrency.length;
-    const zeroExpense = expense.isZero();
+    const zeroCharge = netCharge.isZero();
     // A repayment accompanied by a fee, or an unrelated opposing leg, is not a purchase/refund.
-    if (!unmatchedCurrency && !zeroExpense && expense.isPositive() === entry.change.isPositive() && !hasAnnotations && !hasMixedSigns) continue;
+    if (!unmatchedCurrency && !zeroCharge && netCharge.isPositive() === entry.change.isPositive() && !hasAnnotations && !hasMixedSigns) continue;
     const relatedPaymentTotal = entries.filter(other => other.currency === entry.currency && other.change.isPositive() === entry.change.isPositive())
       .reduce((sum, other) => sum.plus(other.change.abs()), new D(0));
-    const ambiguous = hasAnnotations || hasMixedSigns || unmatchedCurrency || zeroExpense || relatedPaymentTotal.gt(expense.abs());
+    const ambiguous = hasAnnotations || hasMixedSigns || unmatchedCurrency || zeroCharge || relatedPaymentTotal.gt(netCharge.abs());
     result.push({ account: entry.account, currency: entry.currency, amount: ambiguous ? null : entry.change.negated(), direction: entry.change.gt(0) ? 'refund' : 'expense' });
   }
   return result;
@@ -217,20 +224,21 @@ export function getPaymentAccountSpending(ledger: Ledger, month: string, cycle?:
 }
 
 /** The same account legs as the summary, preserving their original transactions for inspection. */
-export function getPaymentAccountSpendingTransactions(ledger: Ledger, query: TransactionQuery & { account: string; currency: string }): Activity[] {
+export function getPaymentAccountSpendingTransactions(ledger: Ledger, query: TransactionQuery & { account: string }): Activity[] {
   const { D } = arithmetic(ledger);
   const { start, end } = query.month === undefined ? { start: '0001-01-01', end: '9999-12-31' } : reportPeriod(query.month, query.cycle);
   const search = query.search?.toLowerCase() ?? '';
   return ledger.transactions.filter(transaction => transaction.date >= start && transaction.date <= end && (!query.date || transaction.date === query.date))
-    .flatMap(transaction => {
-      const item = paymentContributions(ledger, transaction, D).find(value => value.account === query.account && value.currency === query.currency);
-      if (!item) return [];
-      const amounts = activityAmounts(ledger, transaction, D);
-      const row = activity(ledger, transaction, amounts, query.currency, item.direction);
-      const result: Activity = { ...row, kind: item.direction, direction: item.direction === 'expense' ? 'out' : 'in', currency: item.currency,
-        amount: item.amount === null ? row.amount : text(item.amount.abs()), amountUnavailable: item.amount === null, amountBasis: 'units', amounts: [] };
-      return !search || `${result.payee}\n${result.narration}\n${result.category}\n${result.accountLabel}\n${result.postings.map(posting => label(ledger, posting.account)).join('\n')}`.toLowerCase().includes(search) ? [result] : [];
-    }).reverse();
+    .flatMap(transaction => paymentContributions(ledger, transaction, D)
+      .filter(item => item.account === query.account && (!query.currency || item.currency === query.currency))
+      .map(item => {
+        const row = activity(ledger, transaction, activityAmounts(ledger, transaction, D), item.currency, item.direction);
+        return { ...row, kind: item.direction, direction: item.direction === 'expense' ? 'out' : 'in', currency: item.currency,
+          account: item.account, accountLabel: label(ledger, item.account),
+          amount: item.amount === null ? row.amount : text(item.amount.abs()), amountUnavailable: item.amount === null, amountBasis: 'units', amounts: [] } satisfies Activity;
+      }))
+    .filter(result => !search || `${result.payee}\n${result.narration}\n${result.category}\n${result.accountLabel}\n${result.postings.map(posting => label(ledger, posting.account)).join('\n')}`.toLowerCase().includes(search))
+    .reverse();
 }
 
 type IncomeContribution = { account: string; currency: string; amount: Decimal | null; direction: 'in' | 'out' };
@@ -314,6 +322,9 @@ export function getCreditCardSpendingTransactions(ledger: Ledger, query: Transac
 }
 
 export function getTransactions(ledger: Ledger, query: TransactionQuery): Activity[] {
+  if (query.kind === 'expense' && query.account && isCreditCard(ledger, query.account)) {
+    return getPaymentAccountSpendingTransactions(ledger, { ...query, account: query.account }).filter(row => row.kind === 'expense');
+  }
   const { D } = arithmetic(ledger);
   const { start, end } = query.month === undefined ? { start: '0001-01-01', end: '9999-12-31' } : reportPeriod(query.month, query.cycle);
   const search = query.search?.toLowerCase() ?? '';
