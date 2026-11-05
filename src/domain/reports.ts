@@ -407,8 +407,8 @@ export function isInvestmentAccount(name: string): boolean {
 }
 
 export function summarizeInvestments(ledger: Ledger, report: AccountReport, currency: string) {
-  const { sum } = arithmetic(ledger);
-  const monetaryAssets = report.accounts.filter(account => account.kind === 'asset' && account.role === 'other' && isInvestmentAccount(account.name));
+  const { D, sum } = arithmetic(ledger);
+  const monetaryAssets = report.accounts.filter(account => account.kind === 'asset' && account.role === 'other' && (isInvestmentAccount(account.name) || ledger.accounts.some(item => item.name === account.name && item.role === 'investment')));
   const positionsByLot = new Map<string, InvestmentPosition>();
   for (const position of report.positions) {
     const key = JSON.stringify([position.account, position.commodity, position.unitCost, position.costCurrency, position.costDate, position.costLabel]);
@@ -430,13 +430,27 @@ export function summarizeInvestments(ledger: Ledger, report: AccountReport, curr
       amount: text(sum(lots.filter(lot => lot.costCurrency === costCurrency).map(lot => lot.cost!))),
     })) : null;
     const marketValue = lots.some(lot => lot.marketValue === null) ? null : text(sum(lots.map(lot => lot.marketValue!)));
+    const units = sum(lots.map(lot => lot.units));
+    const unrealizedPnl = marketValue === null || costs === null || lots.some(lot => lot.unrealizedPnl === null || lot.costCurrency !== lot.currency) ? null : text(sum(lots.map(lot => lot.unrealizedPnl!)));
+    const singleCost = costs?.length === 1 ? costs[0] : null;
     return {
       account: lots[0].account, accountLabel: lots[0].accountLabel, commodity: lots[0].commodity, currency: lots[0].currency,
-      marketValue,
+      marketValue, units: text(units),
       costs,
-      unrealizedPnl: marketValue === null || costs === null || lots.some(lot => lot.unrealizedPnl === null || lot.costCurrency !== lot.currency) ? null : text(sum(lots.map(lot => lot.unrealizedPnl!))),
+      averageCost: singleCost && units.gt(0) ? text(new D(singleCost.amount).div(units)) : null,
+      unrealizedPnl,
+      returnRate: unrealizedPnl !== null && singleCost && new D(singleCost.amount).gt(0) ? text(new D(unrealizedPnl).div(singleCost.amount).times(100)) : null,
       lots: [...lots].sort((a, b) => !a.costDate ? (b.costDate ? 1 : 0) : !b.costDate ? -1 : b.costDate.localeCompare(a.costDate)),
     };
+  }).sort((a, b) => a.currency.localeCompare(b.currency) || (a.marketValue === null ? (b.marketValue === null ? 0 : 1) : b.marketValue === null ? -1 : new D(b.marketValue).cmp(a.marketValue)) || a.commodity.localeCompare(b.commodity));
+  // Each currency is independent; an incomplete valuation is never shown as a total.
+  const totals = [...new Set(holdings.map(holding => holding.currency))].map(unit => {
+    const items = holdings.filter(holding => holding.currency === unit);
+    const marketValue = items.every(item => item.marketValue !== null) ? text(sum(items.map(item => item.marketValue!))) : null;
+    const cost = items.every(item => item.costs?.length === 1 && item.costs[0].currency === unit) ? text(sum(items.map(item => item.costs![0].amount))) : null;
+    const unrealizedPnl = items.every(item => item.unrealizedPnl !== null) ? text(sum(items.map(item => item.unrealizedPnl!))) : null;
+    return { currency: unit, count: items.length, marketValue, cost, unrealizedPnl,
+      returnRate: unrealizedPnl !== null && cost !== null && new D(cost).gt(0) ? text(new D(unrealizedPnl).div(cost).times(100)) : null };
   });
-  return { monetaryAssets, holdings };
+  return { monetaryAssets, holdings, totals };
 }
