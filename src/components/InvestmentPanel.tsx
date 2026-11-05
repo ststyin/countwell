@@ -15,13 +15,15 @@ type Holding = InvestmentSummary['holdings'][number]
 
 function Gain({ amount, currency }: { amount: string | null; currency: string }) {
   const { hidden } = useContext(DisplayContext)
-  const tone = hidden || amount === null || new Decimal(amount).isZero() ? '' : new Decimal(amount).gt(0) ? 'income-tone' : 'expense-tone'
-  return <span className={tone}><Money amount={amount} currency={currency} signed /></span>
+  const rounded = amount === null ? null : new Decimal(amount).toDecimalPlaces(2)
+  const tone = hidden || rounded === null || rounded.isZero() ? '' : rounded.gt(0) ? 'income-tone' : 'expense-tone'
+  return <span className={tone}><Money amount={rounded?.isZero() ? '0' : rounded?.toFixed() ?? null} currency={currency} signed /></span>
 }
 
 function Rate({ value }: { value: string | null }) {
   const { hidden } = useContext(DisplayContext)
-  return <span className="holding-rate">{hidden ? '••••' : value === null ? '—' : `${new Decimal(value).gt(0) ? '+' : ''}${formatAmount(value)}%`}</span>
+  const rounded = value === null ? null : new Decimal(value).toDecimalPlaces(2)
+  return <span className="holding-rate">{hidden ? '••••' : rounded === null ? '—' : `${rounded.gt(0) ? '+' : ''}${formatAmount(rounded.isZero() ? '0' : rounded.toFixed())}%`}</span>
 }
 
 function MonetaryInvestment({ account, ledger, label }: { account: AccountBalance; ledger: Ledger; label: string }) {
@@ -46,14 +48,23 @@ function HoldingItem({ holding, name, accountLabel, onAccount }: { holding: Hold
       <ChevronDown size={16} className="investment-chevron" />
       <span className="holding-summary-metrics">
         <span className="holding-summary-metric"><span>持有份额</span><span className="money">{shares(holding.units)} 份</span></span>
-        <span className="holding-summary-metric"><span>总成本</span><span className="holding-cost-values">{holding.costs ? holding.costs.map(cost => <span key={cost.currency}><Money amount={cost.amount} currency={cost.currency} />{cost.currency !== holding.currency && ` ${cost.currency}`}</span>) : <Money amount={null} />}</span></span>
-        <span className="holding-summary-metric"><span>持仓盈亏</span><span className="holding-gain"><Gain amount={holding.unrealizedPnl} currency={holding.currency} /><Rate value={holding.returnRate} /></span></span>
+        <span className="holding-summary-metric"><span>剩余成本</span><span className="holding-cost-values">{holding.costs ? holding.costs.map(cost => <span key={cost.currency}><Money amount={cost.amount} currency={cost.currency} />{cost.currency !== holding.currency && ` ${cost.currency}`}</span>) : <Money amount={null} />}</span></span>
+        <span className="holding-summary-metric"><span>累计盈亏</span><span className="holding-gain"><Gain amount={holding.cumulativePnl} currency={holding.currency} /><Rate value={holding.cumulativeReturnRate} /></span></span>
       </span>
+      <span className="holding-profit-breakdown"><span>已实现盈亏 <Gain amount={holding.realizedPnl} currency={holding.currency} /></span><span>持仓浮动盈亏 <Gain amount={holding.unrealizedPnl} currency={holding.currency} /></span></span>
     </summary>
     <div className="investment-item-detail">
+      <div className="holding-cash-grid">
+        <div><span>累计投入 · 含期初成本</span><Money amount={holding.invested} currency={holding.currency} /></div>
+        <div><span>卖出净收回</span><Money amount={holding.withdrawn} currency={holding.currency} /></div>
+        <div><span>净投入</span><Money amount={holding.netInvested} currency={holding.currency} /></div>
+      </div>
+      <p className="holding-note">累计盈亏 = 当前市值 + 卖出净收回 − 累计投入。收益率按累计投入计算，非年化。已实现盈亏包含买卖中单独记录的费用。分项分别四舍五入，合计使用原始精度。</p>
+      {holding.invested === null && <p className="holding-note">买卖收付或期初成本无法完整归属，累计盈亏暂不可确认。请核对合并交易、转仓和币种。</p>}
       <div className="holding-quote-grid">
         <div><span>最新账本净值</span><strong><Money amount={quote.status === 'ok' ? quote.price : null} currency={holding.currency} decimals={4} /> {holding.currency}</strong><small>{quote.priceDate ? `报价日期 ${quote.priceDate}` : '尚无可用报价'}</small></div>
-        <div><span>平均持仓单价</span><strong><Money amount={holding.averageCost} decimals={4} /> {holding.costs?.length === 1 ? holding.costs[0].currency : ''}</strong><small>按剩余份额加权</small></div>
+        <div><span>平均持仓单价</span><strong><Money amount={holding.averageCost} decimals={4} /> {holding.costs?.length === 1 ? holding.costs[0].currency : ''}</strong><small>仅计算剩余批次的买入成本</small></div>
+        <div><span>回本参考净值</span><strong><Money amount={holding.breakEvenPrice} currency={holding.currency} decimals={4} /> {holding.currency}</strong><small>净投入 ÷ 当前份额，最低为 0；未计未来卖出费用</small></div>
       </div>
       {holding.unrealizedPnl === null && <p className="holding-note">{holding.marketValue === null ? '缺少可用报价，暂无法计算市值和盈亏。' : '成本缺失、币种不同或含负份额，暂无法计算持仓盈亏。'}</p>}
       <div className="holding-lots-heading"><h3>买入批次 <span>{holding.lots.length}</span></h3><span>剩余持仓 · 最近买入在前</span></div>
@@ -77,10 +88,10 @@ export default function InvestmentPanel({ summary, ledger, emptyAccounts, onAcco
   return <section className="panel investment-panel"><SectionTitle title="投资持仓" subtitle="全部账本持仓 · 按账本最新报价估值" />
     {summary.totals.map(total => <div className="investment-overview" key={total.currency}>
       <div className="investment-overview-value"><span>持仓总市值 · {total.currency || '币种待确认'}</span><Money amount={total.marketValue} currency={total.currency} /><small>{total.count} 项持仓{total.marketValue === null ? ' · 报价不完整' : ''}</small></div>
-      <div><span>持仓总成本</span><Money amount={total.cost} currency={total.currency} /></div>
-      <div><span>持仓总盈亏</span><Gain amount={total.unrealizedPnl} currency={total.currency} /><Rate value={total.returnRate} /></div>
+      <div><span>在持基金累计投入</span><Money amount={total.invested} currency={total.currency} /></div>
+      <div><span>在持基金累计盈亏</span><Gain amount={total.cumulativePnl} currency={total.currency} /><Rate value={total.cumulativeReturnRate} /></div>
     </div>)}
-    {summary.holdings.length > 0 && <p className="investment-caption">盈亏与收益率仅计剩余持仓；不含已卖出收益、分红及未计入成本的费用。金额单位为各项标注币种。</p>}
+    {summary.holdings.length > 0 && <p className="investment-caption">累计盈亏包含这些基金历史卖出的盈亏；上方合计仅覆盖当前持有的基金。按账本买卖及期初成本计算，不含独立分红；收益率非年化。</p>}
     <div className="position-list">
       {summary.holdings.map(holding => <HoldingItem key={JSON.stringify([holding.account, holding.commodity, holding.currency])} holding={holding} name={names.get(holding.account) ?? holding.commodity} accountLabel={labels.get(holding.account) ?? holding.account} onAccount={onAccount} />)}
       {activeBalances.length > 0 && <div className="investment-balances"><h3>其他投资余额</h3><p className="holding-note">仅记录金额的账户，单独展示账面余额。</p>{activeBalances.map(account => <MonetaryInvestment key={`${account.name}:${account.currency}`} account={account} ledger={ledger} label={names.get(account.name) ?? labels.get(account.name) ?? account.name} />)}</div>}

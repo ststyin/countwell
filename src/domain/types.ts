@@ -168,6 +168,8 @@ export interface InvestmentPosition {
 }
 
 export interface AccountReport {
+  /** Inclusive valuation cutoff, including a custom reporting period when used. */
+  asOf?: string;
   month: string;
   currency: string;
   currencies: string[];

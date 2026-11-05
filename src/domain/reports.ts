@@ -396,7 +396,7 @@ export function getAccounts(ledger: Ledger, month?: string, currency = 'CNY', cy
   const overpayments = sum(selected.filter(account => account.kind === 'liability').map(account => D.max(account.balance, 0).toFixed()));
   const investments = selectedPositions.some(position => position.marketValue === null) ? null : sum(selectedPositions.map(position => position.marketValue!));
   const signedLiabilities = sum(selected.filter(account => account.kind === 'liability').map(account => account.balance));
-  return { month: month ?? '', currency, currencies: moneyCurrencies(ledger), cash: text(cash), otherAssets: text(otherAssets), investments: investments === null ? null : text(investments), liabilities: text(liabilities), overpayments: text(overpayments), netWorth: investments === null ? null : text(cash.plus(otherAssets).plus(investments).plus(signedLiabilities)), previousCash: text(previousCash), cashChange: text(cash.minus(previousCash)), accounts, positions, warnings: investments === null ? ['部分持仓缺少可用的同币种直接报价，暂不展示完整投资合计与净资产。'] : [] };
+  return { month: month ?? '', asOf: end, currency, currencies: moneyCurrencies(ledger), cash: text(cash), otherAssets: text(otherAssets), investments: investments === null ? null : text(investments), liabilities: text(liabilities), overpayments: text(overpayments), netWorth: investments === null ? null : text(cash.plus(otherAssets).plus(investments).plus(signedLiabilities)), previousCash: text(previousCash), cashChange: text(cash.minus(previousCash)), accounts, positions, warnings: investments === null ? ['部分持仓缺少可用的同币种直接报价，暂不展示完整投资合计与净资产。'] : [] };
 }
 
 /** Identify monetary balances held in investment accounts without treating receivables as investments. */
@@ -409,6 +409,38 @@ export function isInvestmentAccount(name: string): boolean {
 export function summarizeInvestments(ledger: Ledger, report: AccountReport, currency: string) {
   const { D, sum } = arithmetic(ledger);
   const monetaryAssets = report.accounts.filter(account => account.kind === 'asset' && account.role === 'other' && (isInvestmentAccount(account.name) || ledger.accounts.some(item => item.name === account.name && item.role === 'investment')));
+  const end = report.asOf ?? (report.month ? reportPeriod(report.month).end : '9999-12-31');
+  const goods = costUnits(ledger, end);
+  const events = ledger.transactions.filter(transaction => transaction.date <= end);
+  // Allocate settlement only when one identifiable holding is involved. A transfer,
+  // currency conversion, or combined trade must not invent a cash allocation.
+  const cashFlows = (account: string, commodity: string, unit: string) => {
+    let invested = new D(0), withdrawn = new D(0), seen = false;
+    for (const transaction of events) {
+      const trades = transaction.postings.filter(posting => posting.account === account && posting.currency === commodity && !new D(posting.amount).isZero());
+      if (!trades.length) continue;
+      seen = true;
+      const others = transaction.postings.filter(posting => !trades.includes(posting));
+      const buying = trades.every(posting => new D(posting.amount).gt(0));
+      const selling = trades.every(posting => new D(posting.amount).lt(0));
+      if ((!buying && !selling) || trades.some(posting => !posting.cost || posting.cost.currency !== unit || new D(posting.cost.amount).lt(0))
+        || others.some(posting => posting.cost || posting.price || goods.has(posting.currency) || posting.currency !== unit)) return null;
+      const settlements = others.filter(posting => ['asset', 'liability', 'equity'].includes(accountKind(ledger, posting.account) ?? ''));
+      if (!settlements.length || (selling && settlements.some(posting => accountKind(ledger, posting.account) === 'equity'))) return null;
+      // Do not mistake salary mixed into a trade, an unlinked distribution or a
+      // shopping expense for investment proceeds or a commission.
+      if (others.some(posting => {
+        const kind = accountKind(ledger, posting.account);
+        return !kind || (kind === 'income' && (buying || !/(?:^|:)(?:CapitalGains?|Gains?|PnL|Profit|投资收益|投资损益|资本利得)(?::|$)/i.test(posting.account)))
+          || (kind === 'expense' && !/(?:fee|commission|tax|手续费|佣金|税)/i.test(posting.account));
+      })) return null;
+      const settlement = sum(settlements.map(posting => posting.amount));
+      if ((buying && settlement.gt(0)) || (selling && settlement.lt(0))) return null;
+      if (buying) invested = invested.minus(settlement);
+      else withdrawn = withdrawn.plus(settlement);
+    }
+    return seen ? { invested, withdrawn } : null;
+  };
   const positionsByLot = new Map<string, InvestmentPosition>();
   for (const position of report.positions) {
     const key = JSON.stringify([position.account, position.commodity, position.unitCost, position.costCurrency, position.costDate, position.costLabel]);
@@ -433,9 +465,19 @@ export function summarizeInvestments(ledger: Ledger, report: AccountReport, curr
     const units = sum(lots.map(lot => lot.units));
     const unrealizedPnl = marketValue === null || costs === null || lots.some(lot => lot.unrealizedPnl === null || lot.costCurrency !== lot.currency) ? null : text(sum(lots.map(lot => lot.unrealizedPnl!)));
     const singleCost = costs?.length === 1 ? costs[0] : null;
+    const flows = units.gt(0) && costsComplete ? cashFlows(lots[0].account, lots[0].commodity, lots[0].currency) : null;
+    const netInvested = flows ? flows.invested.minus(flows.withdrawn) : null;
+    const cumulativePnl = marketValue !== null && netInvested !== null ? new D(marketValue).minus(netInvested) : null;
+    const realizedPnl = netInvested !== null && singleCost?.currency === lots[0].currency ? new D(singleCost.amount).minus(netInvested) : null;
     return {
       account: lots[0].account, accountLabel: lots[0].accountLabel, commodity: lots[0].commodity, currency: lots[0].currency,
       marketValue, units: text(units),
+      invested: flows ? text(flows.invested) : null, withdrawn: flows ? text(flows.withdrawn) : null,
+      netInvested: netInvested === null ? null : text(netInvested),
+      cumulativePnl: cumulativePnl === null ? null : text(cumulativePnl),
+      realizedPnl: realizedPnl === null ? null : text(realizedPnl),
+      cumulativeReturnRate: cumulativePnl !== null && flows!.invested.gt(0) ? text(cumulativePnl.div(flows!.invested).times(100)) : null,
+      breakEvenPrice: netInvested === null ? null : text(D.max(0, netInvested).div(units)),
       costs,
       averageCost: singleCost && units.gt(0) ? text(new D(singleCost.amount).div(units)) : null,
       unrealizedPnl,
@@ -449,7 +491,11 @@ export function summarizeInvestments(ledger: Ledger, report: AccountReport, curr
     const marketValue = items.every(item => item.marketValue !== null) ? text(sum(items.map(item => item.marketValue!))) : null;
     const cost = items.every(item => item.costs?.length === 1 && item.costs[0].currency === unit) ? text(sum(items.map(item => item.costs![0].amount))) : null;
     const unrealizedPnl = items.every(item => item.unrealizedPnl !== null) ? text(sum(items.map(item => item.unrealizedPnl!))) : null;
-    return { currency: unit, count: items.length, marketValue, cost, unrealizedPnl,
+    const invested = items.every(item => item.invested !== null) ? text(sum(items.map(item => item.invested!))) : null;
+    const cumulativePnl = items.every(item => item.cumulativePnl !== null) ? text(sum(items.map(item => item.cumulativePnl!))) : null;
+    const realizedPnl = items.every(item => item.realizedPnl !== null) ? text(sum(items.map(item => item.realizedPnl!))) : null;
+    return { currency: unit, count: items.length, marketValue, cost, unrealizedPnl, invested, cumulativePnl, realizedPnl,
+      cumulativeReturnRate: cumulativePnl !== null && invested !== null && new D(invested).gt(0) ? text(new D(cumulativePnl).div(invested).times(100)) : null,
       returnRate: unrealizedPnl !== null && cost !== null && new D(cost).gt(0) ? text(new D(unrealizedPnl).div(cost).times(100)) : null };
   });
   return { monetaryAssets, holdings, totals };

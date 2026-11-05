@@ -23,7 +23,7 @@ describe('investment overview calculations', () => {
   it('reports only remaining shares and keeps portfolio values and returns separate by currency', () => {
     const result = summary()
     expect(result.holdings[0]).toMatchObject({ units: '2', averageCost: '2', returnRate: '50' })
-    expect(result.totals).toEqual([
+    expect(result.totals).toMatchObject([
       { currency: 'CNY', count: 1, marketValue: '6', cost: '4', unrealizedPnl: '2', returnRate: '50' },
       { currency: 'USD', count: 1, marketValue: '15', cost: '20', unrealizedPnl: '-5', returnRate: '-25' },
     ])
@@ -33,7 +33,7 @@ describe('investment overview calculations', () => {
     const source = { ...ledger, prices: [{ date: '2026-11-01', commodity: 'FUND', amount: '3', currency: 'USD' }] }
     expect(summary(source).totals.every(total => total.marketValue === null && total.unrealizedPnl === null && total.returnRate === null)).toBe(true)
     const mixed = { ...ledger, prices: [...ledger.prices, { date: '2026-11-01', commodity: 'STOCK', amount: '30', currency: 'CNY' }] }
-    expect(summary(mixed).totals).toEqual([{ currency: 'CNY', count: 2, marketValue: '156', cost: null, unrealizedPnl: null, returnRate: null }])
+    expect(summary(mixed).totals).toMatchObject([{ currency: 'CNY', count: 2, marketValue: '156', cost: null, unrealizedPnl: null, returnRate: null }])
   })
 
   it('weights cost by remaining units and does not average individual return percentages', () => {
