@@ -136,13 +136,16 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 .month-input::-webkit-calendar-picker-indicator { opacity: .6; width: 13px; }
 .money { display: inline-block; font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; letter-spacing: -.3px; overflow-wrap: anywhere; }
 .currency-symbol { display: inline; font-size: .58em; margin-right: 5px; color: var(--text-secondary); font-weight: 400; vertical-align: .06em; }
-.flow-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.spend-card, .stat-card { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 142px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-.spend-card { grid-column: 1 / -1; background: linear-gradient(130deg, var(--surface), var(--surface-soft)); }
-.flow-choice[aria-expanded="true"] { border-color: var(--accent); background: var(--surface-soft); }
+.flow-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(130deg, var(--surface), var(--surface-soft)); }
+.flow-surplus { grid-column: 1 / -1; min-width: 0; padding-bottom: 10px; border-bottom: 1px solid var(--line-soft); }
+.flow-choice { min-width: 0; padding: 6px 8px; border-radius: 10px; }
+.flow-choice .stat-amount { margin-top: 5px; }
+.flow-choice:hover { background: var(--surface-hover); }
+.flow-choice[aria-expanded="true"] { background: var(--accent-soft); }
+.stat-card { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 142px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .stat-label { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 12px; font-weight: 400; }
 .stat-label svg { width: 16px; height: 16px; }
-.hero-amount { display: block; margin-top: 13px; font-size: clamp(32px, 3.1vw, 42px); line-height: 1.18; letter-spacing: -1.3px; font-weight: 450; }
+.hero-amount { display: block; margin-top: 7px; font-size: clamp(32px, 3.1vw, 42px); line-height: 1.18; letter-spacing: -1.3px; font-weight: 450; }
 .stat-amount { display: block; margin-top: 17px; font-size: clamp(22px, 2.2vw, 29px); line-height: 1.25; letter-spacing: -.7px; font-weight: 450; }
 .stat-footnote { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 17px; color: var(--muted); font-size: 11px; }
 .change-pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 5px; color: var(--expense); background: var(--expense-soft); font-size: 11px; line-height: 1.35; }
@@ -364,8 +367,7 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .main-content { margin-left: 200px; }
   .topbar { padding-left: 28px; padding-right: 28px; }
   .page-content { padding-left: 28px; padding-right: 28px; }
-  .spend-card, .stat-card { padding: 17px; }
-  .flow-grid { gap: 12px; }
+  .stat-card { padding: 17px; }
   .stat-amount { font-size: 25px; }
   .hero-amount { font-size: 36px; }
   .dashboard-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; }
@@ -373,8 +375,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 }
 
 @media (max-width: 1020px) and (min-width: 761px) {
-  .flow-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .spend-card { grid-column: 1 / -1; min-height: 150px; }
   .stat-card { min-height: 126px; }
   .hero-amount { font-size: 40px; }
   .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
@@ -403,10 +403,8 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .month-control { min-height: 36px; gap: 0; padding: 1px; border-radius: 9px; }
   .month-control button { width: 28px; min-height: 32px; }
   .month-input { width: 78px; max-width: 78px; font-size: 11px; padding: 3px; }
-  .flow-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .spend-card { grid-column: 1 / -1; min-height: 124px; padding: 0 2px 14px; border: 0; border-radius: 0; background: transparent; }
-  .hero-amount { font-size: clamp(38px, 10vw, 44px); margin-top: 8px; letter-spacing: -1.4px; }
-  .spend-card .stat-footnote { padding-top: 10px; }
+  .flow-grid { padding: 14px; border-radius: 16px; }
+  .hero-amount { font-size: clamp(38px, 10vw, 44px); letter-spacing: -1.4px; }
   .stat-card { min-height: 112px; padding: 14px; border-radius: 15px; }
   .stat-label { font-size: 12px; gap: 6px; }
   .stat-label svg { width: 14px; height: 14px; }

@@ -31,9 +31,18 @@ export default function OverviewPage({ ledger, month, currency, cycle, onNavigat
   return <>
     {report.warnings.map(warning => <div className="notice" key={warning}><span>{warning}</span></div>)}
     <section className="flow-grid" aria-label="本期收支">
-      <article className="spend-card"><div className="stat-label"><span className="stat-icon gold-tone"><TrendingUp size={18} /></span>本期结余{currency !== 'CNY' && <span className="unit-label">{currency}</span>}</div><Money amount={report.flowSupported ? report.surplus : null} className="hero-amount" symbol /></article>
-      <button type="button" className="stat-card drilldown-card flow-choice" aria-expanded={expanded === 'income'} aria-controls={expanded === 'income' ? 'overview-account-breakdown' : undefined} onClick={() => setExpanded(value => value === 'income' ? null : 'income')}><div className="stat-label"><span className="stat-icon income-tone"><ArrowDownLeft size={18} /></span>本期收入</div><Money amount={report.flowSupported ? report.income : null} className="stat-amount" symbol /></button>
-      <button type="button" className="stat-card drilldown-card flow-choice" aria-expanded={expanded === 'expense'} aria-controls={expanded === 'expense' ? 'overview-account-breakdown' : undefined} onClick={() => setExpanded(value => value === 'expense' ? null : 'expense')}><div className="stat-label"><span className="stat-icon expense-tone"><ArrowUpRight size={18} /></span>本期支出</div><Money amount={report.flowSupported ? report.expense : null} className="stat-amount" symbol /></button>
+      <div className="flow-surplus">
+        <div className="stat-label"><span className="stat-icon gold-tone"><TrendingUp size={18} /></span>本期结余{currency !== 'CNY' && <span className="unit-label">{currency}</span>}</div>
+        <Money amount={report.flowSupported ? report.surplus : null} className="hero-amount" symbol />
+      </div>
+      <button type="button" className="drilldown-card flow-choice" aria-expanded={expanded === 'income'} aria-controls={expanded === 'income' ? 'overview-account-breakdown' : undefined} onClick={() => setExpanded(value => value === 'income' ? null : 'income')}>
+        <span className="stat-label"><span className="stat-icon income-tone"><ArrowDownLeft size={18} /></span>本期收入</span>
+        <Money amount={report.flowSupported ? report.income : null} className="stat-amount" symbol />
+      </button>
+      <button type="button" className="drilldown-card flow-choice" aria-expanded={expanded === 'expense'} aria-controls={expanded === 'expense' ? 'overview-account-breakdown' : undefined} onClick={() => setExpanded(value => value === 'expense' ? null : 'expense')}>
+        <span className="stat-label"><span className="stat-icon expense-tone"><ArrowUpRight size={18} /></span>本期支出</span>
+        <Money amount={report.flowSupported ? report.expense : null} className="stat-amount" symbol />
+      </button>
     </section>
     {expanded && <AccountFlowPanel ledger={ledger} month={month} cycle={cycle} mode={expanded} />}
     <div className="dashboard-grid">
