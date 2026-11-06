@@ -61,9 +61,13 @@ export default function RecordPage({ ledger, ledgerKey = '' }: { ledger: Ledger;
     setMessage('')
     setChecking(true)
     const readStatus = async () => {
-      const result = await sourceRequest<{ status: ExpenseStatus }>(`/api/expenses/status?id=${encodeURIComponent(id)}`, 'GET', undefined, { signal })
-      setStatus(previous => isWritten(previous) && !isWritten(result.status) ? previous : result.status)
-      return result.status
+      const result = await sourceRequest<{ status: 'pending' | 'success' | 'failed'; state?: ExpenseStatus }>(
+        `/api/expenses/status?id=${encodeURIComponent(id)}`, 'GET', undefined, { signal },
+      )
+      // A deployed shell can also outlive a Worker rollback.
+      const observed = result.state ?? (result.status === 'success' ? 'committed' : result.status === 'failed' ? 'unconfirmed' : 'pending')
+      setStatus(previous => isWritten(previous) && !isWritten(observed) ? previous : observed)
+      return observed
     }
     try {
       if (expense) {

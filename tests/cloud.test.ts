@@ -378,6 +378,21 @@ describe('private cloud login and snapshot interface', () => {
 })
 
 describe('recording endpoint protection', () => {
+  it('serves publication status while preserving success for an older PWA shell', async () => {
+    const id = '00000000-0000-4000-8000-000000000001'
+    const context = setup()
+    context.getSnapshot.mockReturnValue({
+      ...snapshot,
+      ledger: { ...snapshot.ledger, files: [{ path: 'main.beancount', content: `  countwell_id: "${id}"\n` }] },
+    })
+    const { sessionCookie } = await signIn(context)
+    const { csrf } = await session(context, sessionCookie)
+    const response = await context.app.fetch(request('/api/expenses/status?id=' + id, {
+      headers: { Cookie: sessionCookie, 'X-Countwell-Token': csrf },
+    }), context.env)
+    expect(await response.json()).toEqual({ status: 'success', state: 'published' })
+  })
+
   it('rejects anonymous and cross-site writes before dispatching a workflow', async () => {
     const context = setup()
     context.env.COUNTWELL_GITHUB_ACTIONS_TOKEN = 'fixture-actions-token'

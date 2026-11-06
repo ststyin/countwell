@@ -54,7 +54,12 @@ export function createCloudApp(getSnapshot: () => SourceSnapshot, fetcher: typeo
         return response
       }
       if (path === '/api/expenses' && request.method === 'POST') return json(await startExpense(request, getSnapshot(), session.uid, env.COUNTWELL_GITHUB_ACTIONS_TOKEN, fetcher), 202)
-      if (path === '/api/expenses/status' && request.method === 'GET') return json(await expenseStatus(url.searchParams.get('id') ?? '', getSnapshot(), session.uid, env.COUNTWELL_GITHUB_ACTIONS_TOKEN, fetcher))
+      if (path === '/api/expenses/status' && request.method === 'GET') {
+        const { status: state } = await expenseStatus(url.searchParams.get('id') ?? '', getSnapshot(), session.uid, env.COUNTWELL_GITHUB_ACTIONS_TOKEN, fetcher)
+        // A PWA tab may still be running the previous application shell.
+        const status = state === 'pending' || state === 'unconfirmed' ? 'pending' : state === 'failed' ? 'failed' : 'success'
+        return json({ status, state })
+      }
       if (path === '/api/ledger/status' && request.method === 'GET') return json(getSnapshot().status)
       if (path === '/api/ledger/snapshot' && request.method === 'GET') return json(getSnapshot())
       if (path === '/api/ledger/reload' && request.method === 'POST') return json(getSnapshot())

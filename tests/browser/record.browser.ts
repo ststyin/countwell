@@ -29,7 +29,8 @@ async function setupRecording(page: Page, initialStatus: ExpenseStatus, loseResp
       }
       case '/api/expenses/status': {
         queries.push(url.searchParams.get('id') ?? '')
-        return route.fulfill({ json: { status: outcome } })
+        const legacyStatus = outcome === 'failed' ? 'failed' : outcome === 'pending' ? 'pending' : 'success'
+        return route.fulfill({ json: { status: legacyStatus, state: outcome } })
       }
       default: return route.fulfill({ status: 404 })
     }
