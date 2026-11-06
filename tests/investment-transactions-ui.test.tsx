@@ -2,8 +2,9 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import TransactionList from '../src/components/TransactionList'
 import { DisplayContext } from '../src/components/ui'
-import { getOverview, getTransactions } from '../src/domain'
+import { getOverview, getPaymentAccountSpendingTransactions, getReceivingAccountIncomeTransactions, getTransactions } from '../src/domain'
 import type { Ledger } from '../src/domain/types'
+import { AccountFlowPanel } from '../src/pages/OverviewPage'
 
 const ledger: Ledger = {
   title: 'Synthetic investment sale', source: '', defaultMonth: '2026-11', prices: [], commodities: ['FUND'],
@@ -54,6 +55,33 @@ describe('investment transaction presentation', () => {
     expect(html).toContain('卖出成本 3,553.19')
     expect(html).not.toMatch(/\d+\.\d{3,}/)
     expect(getOverview(snapshot, '2026-11').expense).toBe('19.9')
+  })
+  it('attributes booked sale gains and fees to the cash account in both overview drilldowns', () => {
+    const snapshot: Ledger = { ...ledger, transactions: [...ledger.transactions, { ...ledger.transactions[0], id: 'sale-with-fee', postings: [
+      { account: 'Assets:Fund', amount: '-8', currency: 'FUND', cost: { amount: '40', currency: 'CNY' }, price: { amount: '55', currency: 'CNY' } },
+      { account: 'Assets:Fund', amount: '-2', currency: 'FUND', cost: { amount: '40', currency: 'CNY' }, price: { amount: '55', currency: 'CNY' } },
+      { account: 'Assets:Alipay', amount: '530', currency: 'CNY' },
+      { account: 'Expenses:Investment:Fees', amount: '20', currency: 'CNY' },
+      { account: 'Income:CapitalGains', amount: '-150', currency: 'CNY' },
+    ] }] }
+    const income = renderToStaticMarkup(<AccountFlowPanel ledger={snapshot} month="2026-11" mode="income" />)
+    expect(income).toContain('-658.52')
+    expect(income).toContain('含投资盈亏')
+    const expense = renderToStaticMarkup(<AccountFlowPanel ledger={snapshot} month="2026-11" mode="expense" />)
+    expect(expense).toContain('20.00')
+    for (const panel of [income, expense]) {
+      expect(panel).toContain('Alipay')
+      expect(panel).not.toContain('Assets%3AFund')
+      expect(panel).not.toContain('金额待确认')
+    }
+    const query = { month: '2026-11', account: 'Assets:Alipay', currency: 'CNY' }
+    const incomeDetails = renderToStaticMarkup(<TransactionList transactions={getReceivingAccountIncomeTransactions(snapshot, query)} />)
+    expect(incomeDetails).toContain('支付宝到账')
+    expect(incomeDetails).toContain('4,091.48')
+    expect(incomeDetails).toContain('已实现亏损 −808.52')
+    const expenseDetails = renderToStaticMarkup(<TransactionList transactions={getPaymentAccountSpendingTransactions(snapshot, query)} />)
+    expect(expenseDetails).toContain('支付宝到账')
+    expect(expenseDetails).toContain('支出 −20.00')
   })
   it('preserves exact postings in the details and hides all amounts in privacy mode', () => {
     const rows = getTransactions(ledger, { kind: 'income' })
