@@ -555,8 +555,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .holding-quote-grid > div { display: flex; flex-direction: column; gap: 7px; min-width: 0; overflow-wrap: anywhere; }
 .holding-quote-grid span { font-size: 11px; color: var(--muted); }
 .holding-quote-grid strong, .holding-quote-grid strong .money { font-weight: 450; font-size: 14px; color: var(--text); }
-.holding-profit-breakdown { grid-column: 2 / -2; display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--muted); font-size: 11px; }
-.holding-profit-breakdown > span { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 .holding-cash-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding-top: 4px; }
 .holding-cash-grid > div { display: flex; flex-direction: column; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
 .holding-cash-grid > div > span:first-child { font-size: 11px; color: var(--muted); }
@@ -564,12 +562,13 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .holding-lots-heading { margin: 22px 0 8px; }
 .holding-lots-heading h3, .investment-balances h3 { margin: 0; font-size: 12px; font-weight: 500; }
 .holding-lots-heading h3 span { color: var(--muted); margin-left: 4px; }
-.holding-lot { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 14px; padding: 15px 0; border-bottom: 1px solid var(--line-soft); }
-.holding-lot > div { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
-.holding-lot > div > span:first-child { color: var(--muted); font-size: 11px; }
-.holding-lot .holding-lot-date { align-items: flex-start; }
+.holding-lot { padding: 15px 0; border-bottom: 1px solid var(--line-soft); }
+.holding-lot-date { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; overflow-wrap: anywhere; }
 .holding-lot-date strong { font-size: 12px; font-weight: 450; }
-.holding-lot-date small { color: var(--muted); }
+.holding-lot-date small, .holding-lot-metrics dt { color: var(--muted); font-size: 11px; }
+.holding-lot-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; margin: 10px 0 0; }
+.holding-lot-metrics > div { min-width: 0; overflow-wrap: anywhere; }
+.holding-lot-metrics dd { margin: 4px 0 0; font-size: 12px; }
 .holding-more { width: 100%; justify-content: center; min-height: 44px; margin-top: 4px; }
 .holding-account-link { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 16px; }
 .holding-account-link > span { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
@@ -591,12 +590,8 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .holding-summary-metric:last-child { grid-column: 1 / -1; flex-direction: row; align-items: baseline; justify-content: space-between; }
   .holding-quote-grid { padding: 14px; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .holding-quote-grid > div:last-child { grid-column: 1 / -1; }
-  .holding-profit-breakdown { grid-column: 1 / -1; justify-content: space-between; gap: 8px; }
   .holding-cash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .holding-cash-grid > div:last-child { grid-column: 1 / -1; }
-  .holding-lot { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; }
-  .holding-lot .holding-lot-date { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; flex-wrap: wrap; }
-  .holding-lot > div { align-items: flex-start; }
 }
 .investment-transactions { margin-top: 4px; }
 .account-note { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 5px; color: var(--muted); font-size: 11px; line-height: 1.8; margin-top: 17px; }

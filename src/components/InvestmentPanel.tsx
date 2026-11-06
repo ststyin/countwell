@@ -63,7 +63,11 @@ function HoldingItem({ holding, name, accountLabel, onAccount, today }: { holdin
   const quote = holding.lots[0]
   const date = quoteDate(holding)
   const lots = allLots ? holding.lots : holding.lots.slice(0, 5)
-  const shares = (value: string) => hidden ? '••••' : formatAmount(value, 4)
+  const shares = (value: string) => {
+    if (hidden) return '••••'
+    const rounded = new Decimal(value).toDecimalPlaces(4)
+    return formatAmount(rounded.toFixed(), Math.max(2, rounded.decimalPlaces()))
+  }
   return <details className="investment-item holding-item">
     <summary className="investment-item-summary">
       <span className="account-avatar investment-avatar"><TrendingUp size={21} strokeWidth={1.6} /></span>
@@ -72,10 +76,9 @@ function HoldingItem({ holding, name, accountLabel, onAccount, today }: { holdin
       <ChevronDown size={16} className="investment-chevron" />
       <span className="holding-summary-metrics">
         <span className="holding-summary-metric"><span>持有份额</span><span className="money">{shares(holding.units)} 份</span></span>
-        <span className="holding-summary-metric"><span>剩余成本</span><span className="holding-cost-values">{holding.costs ? holding.costs.map(cost => <span key={cost.currency}><Money amount={cost.amount} currency={cost.currency} />{cost.currency !== holding.currency && ` ${cost.currency}`}</span>) : <Money amount={null} />}</span></span>
+        <span className="holding-summary-metric"><span>买入成本</span><span className="holding-cost-values">{holding.costs ? holding.costs.map(cost => <span key={cost.currency}><Money amount={cost.amount} currency={cost.currency} />{cost.currency !== holding.currency && ` ${cost.currency}`}</span>) : <Money amount={null} />}</span></span>
         <span className="holding-summary-metric"><span>累计盈亏</span><span className="holding-gain"><Gain amount={holding.cumulativePnl} currency={holding.currency} /><Rate value={holding.cumulativeReturnRate} /></span></span>
       </span>
-      <span className="holding-profit-breakdown"><span>已实现盈亏 <Gain amount={holding.realizedPnl} currency={holding.currency} /></span><span>持仓浮动盈亏 <Gain amount={holding.unrealizedPnl} currency={holding.currency} /></span></span>
     </summary>
     <div className="investment-item-detail">
       <div className="holding-cash-grid">
@@ -89,12 +92,17 @@ function HoldingItem({ holding, name, accountLabel, onAccount, today }: { holdin
         <div><span>回本参考净值</span><strong><Money amount={holding.breakEvenPrice} currency={holding.currency} decimals={4} /> {holding.currency}</strong></div>
       </div>
       <div className="holding-lots-heading"><h3>买入批次 <span>{holding.lots.length}</span></h3></div>
-      <div className="holding-lots">{lots.map((position, index) => <article className="holding-lot" key={index}>
-        <div className="holding-lot-date"><strong>{position.costDate ?? '日期未记录'}</strong>{position.costLabel && <small>{position.costLabel}</small>}<span className="money">{shares(position.units)} 份</span></div>
-        <div><span>买入单价</span><span><Money amount={position.unitCost} currency={position.costCurrency ?? holding.currency} decimals={4} />{position.costCurrency !== holding.currency && ` ${position.costCurrency ?? ''}`}</span></div>
-        <div><span>剩余成本</span><span><Money amount={position.cost} currency={position.costCurrency ?? holding.currency} />{position.costCurrency !== holding.currency && ` ${position.costCurrency ?? ''}`}</span></div>
-        <div><span>持仓盈亏</span><Gain amount={position.unrealizedPnl} currency={holding.currency} /></div>
-      </article>)}</div>
+      <div className="holding-lots">{lots.map((position, index) => {
+        const otherCurrency = position.costCurrency && position.costCurrency !== holding.currency ? ` ${position.costCurrency}` : ''
+        return <article className="holding-lot" key={index}>
+          <div className="holding-lot-date"><strong>{position.costDate ?? '日期未记录'}</strong>{position.costLabel && <small>{position.costLabel}</small>}</div>
+          <dl className="holding-lot-metrics">
+            <div><dt>单价</dt><dd><Money amount={position.unitCost} currency={position.costCurrency ?? holding.currency} decimals={4} />{otherCurrency}</dd></div>
+            <div><dt>成本</dt><dd><Money amount={position.cost} currency={position.costCurrency ?? holding.currency} />{otherCurrency}</dd></div>
+            <div><dt>份额</dt><dd className="money">{shares(position.units)} 份</dd></div>
+          </dl>
+        </article>
+      })}</div>
       {holding.lots.length > 5 && <button className="text-action holding-more" onClick={() => setAllLots(!allLots)} aria-expanded={allLots}>{allLots ? '收起较早批次' : `查看全部 ${holding.lots.length} 个批次`}<ChevronDown size={15} /></button>}
       <div className="holding-account-link"><span>{accountLabel}</span><button className="text-action investment-transactions" onClick={() => onAccount(holding.account)}>查看账户交易 <ChevronRight size={15} /></button></div>
     </div>

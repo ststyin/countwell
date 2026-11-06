@@ -25,22 +25,21 @@ function render(hidden = false, source = ledger) {
 }
 
 describe('investment holding presentation', () => {
-  it('shows remaining cost and profit while collapsed, and four-decimal purchase prices in newest-first lots', () => {
+  it('shows buy cost while collapsed, and unit price, cost and shares together for each lot', () => {
     const html = render()
     const section = html.slice(html.indexOf('class="panel investment-panel"'))
     const summary = section.match(/<summary[^>]*>(.*?)<\/summary>/)?.[1] ?? ''
     expect(summary).toContain('FUND')
     expect(summary).toContain('12.00')
-    expect(summary).toContain('剩余成本')
+    expect(summary).toContain('买入成本')
     expect(summary).toContain('8.27')
-    expect(summary).toContain('持仓浮动盈亏')
-    expect(summary).toContain('+3.73')
     const details = section.slice(section.indexOf('investment-item-detail'))
-    expect(details).toContain('买入单价')
+    const lotMetrics = details.match(/<dl class="holding-lot-metrics">(.*?)<\/dl>/)?.[1] ?? ''
+    expect([...lotMetrics.matchAll(/<dt>(.*?)<\/dt>/g)].map(match => match[1])).toEqual(['单价', '成本', '份额'])
     expect(details).toContain('1.2345')
     expect(details).toContain('2.3456')
-    expect(details).toContain('3.0000 份')
-    expect(details).toContain('1.0000 份')
+    expect(details).toContain('3.00 份')
+    expect(details).toContain('1.00 份')
     expect(details.indexOf('2026-10-02')).toBeLessThan(details.indexOf('2026-10-01'))
   })
 
@@ -55,7 +54,7 @@ describe('investment holding presentation', () => {
   it('hides cost, gain, share count and unit purchase price in privacy mode', () => {
     const html = render(true)
     expect(html).toContain('金额已隐藏')
-    for (const value of ['8.27', '3.73', '1.2345', '2.3456', '3.0000 份', '1.0000 份', '45.08%', 'income-tone', 'expense-tone']) expect(html).not.toContain(value)
+    for (const value of ['8.27', '1.2345', '2.3456', '3.00 份', '1.00 份', 'income-tone', 'expense-tone']) expect(html).not.toContain(value)
   })
 
   it('uses ledger fund names, keeps quote dates visible and limits the initial lot list', () => {
@@ -85,7 +84,7 @@ describe('investment holding presentation', () => {
     expect(html.indexOf('holding-item')).toBeLessThan(html.indexOf('investment-history'))
   })
 
-  it('prominently shows cumulative loss alongside profitable remaining holdings', () => {
+  it('keeps cumulative loss visible without separate realized and unrealized results', () => {
     const source: Ledger = { ...ledger, prices: [{ date: '2026-11-01', commodity: 'FUND', amount: '12', currency: 'CNY' }], transactions: [
       { ...transaction('2026-10-01', 'expensive', lot('10', '20', '2026-10-01')), postings: [lot('10', '20', '2026-10-01'), { account: 'Assets:Bank', amount: '-200', currency: 'CNY' }] },
       { ...transaction('2026-10-02', 'cheap', lot('10', '10', '2026-10-02')), postings: [lot('10', '10', '2026-10-02'), { account: 'Assets:Bank', amount: '-100', currency: 'CNY' }] },
@@ -93,10 +92,11 @@ describe('investment holding presentation', () => {
     ] }
     const html = render(false, source)
     const summary = html.slice(html.indexOf('class="panel investment-panel"')).match(/<summary[^>]*>(.*?)<\/summary>/)?.[1] ?? ''
-    for (const value of ['累计盈亏', '-60.00', '-20.00%', '已实现盈亏', '-80.00', '持仓浮动盈亏', '+20.00']) expect(summary).toContain(value)
+    for (const value of ['累计盈亏', '-60.00', '-20.00%']) expect(summary).toContain(value)
+    for (const value of ['已实现盈亏', '持仓浮动盈亏', '持仓盈亏']) expect(html).not.toContain(value)
     for (const value of ['累计投入', '300.00', '卖出净收回', '120.00', '净投入', '180.00', '回本参考净值', '18.0000']) expect(html).toContain(value)
     const hidden = render(true, source)
-    for (const value of ['-60.00', '-80.00', '+20.00', '18.0000', '-20.00%', 'income-tone', 'expense-tone']) expect(hidden).not.toContain(value)
+    for (const value of ['-60.00', '18.0000', '-20.00%', 'income-tone', 'expense-tone']) expect(hidden).not.toContain(value)
   })
 
   it('does not color or sign sub-cent rounding residue as a gain or loss', () => {
@@ -108,17 +108,12 @@ describe('investment holding presentation', () => {
     for (const value of ['-0.00', '+0.00', 'income-tone', 'expense-tone']) expect(html).not.toContain(value)
   })
 
-  it('shows losses and keeps cost visible if the market price is missing', () => {
-    const loss = render(false, { ...ledger, prices: [{ date: '2026-11-01', commodity: 'FUND', amount: '1', currency: 'CNY' }] })
-    const lossSummary = loss.slice(loss.indexOf('class="panel investment-panel"')).match(/<summary[^>]*>(.*?)<\/summary>/)?.[1] ?? ''
-    expect(lossSummary).toContain('8.27')
-    expect(lossSummary).toContain('-4.27')
-    expect(lossSummary).toContain('expense-tone')
+  it('keeps buy cost visible if the market price is missing', () => {
     const missing = render(false, { ...ledger, prices: [] })
     const missingSummary = missing.slice(missing.indexOf('class="panel investment-panel"')).match(/<summary[^>]*>(.*?)<\/summary>/)?.[1] ?? ''
     expect(missingSummary).toContain('缺少报价')
     expect(missingSummary).toContain('8.27')
-    expect(missingSummary).toContain('持仓浮动盈亏')
+    expect(missingSummary).toContain('买入成本')
     expect(missingSummary).toContain('—')
   })
 })
