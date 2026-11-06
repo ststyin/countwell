@@ -1,8 +1,10 @@
 # 手机 PWA 与离线演示
 
-Countwell 是可安装的只读账本查看应用，手机和电脑使用同一个应用，页面以 hash 路由切换。内置虚构 demo 可离线查看；真实账本支持通过本机 Node.js + Python 加载服务读取本地、GitHub 或 WebDAV，并由官方 Beancount 校验。网页记账与写回尚未接入。
+Countwell 可安装到手机或电脑，页面以 hash 路由切换。内置虚构 demo 可离线查看；本机 Node.js + Python 服务支持只读加载本地、GitHub 或 WebDAV 账本，并由官方 Beancount 校验。配置了记账工作流的私有 GitHub 站点支持在线录入支出。
 
 ## 本地验证
+
+运行 `npx playwright install chromium` 和 `npm run test:browser` 可在本机 Chromium 中验证记账刷新恢复和重试。测试使用虚构账本和模拟接口。
 
 按 [数据源说明](DATA_SOURCES.md) 安装 Node.js 与 Python 依赖，然后构建并启动生产服务。开发服务器不注册 Service Worker，避免旧缓存干扰代码修改。
 

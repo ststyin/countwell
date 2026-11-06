@@ -35,6 +35,8 @@ function readPreference(key: string, fallback: string) {
 export default function App({ initialCloudSnapshot, cloudNavigationReady }: { initialCloudSnapshot?: SourceSnapshot; cloudNavigationReady?: boolean }) {
   const sourceController = useLedgerSource(initialCloudSnapshot)
   const { ledger } = sourceController
+  const recordingSource = sourceController.status?.source
+  const recordingKey = recordingSource?.repository ? recordingSource.repository + '/' + recordingSource.entryPath : ''
   const sourceFiles = ledger.files?.length ? ledger.files : [{ path: 'demo.beancount', content: ledger.source }]
   const [sourceFileIndex, setSourceFileIndex] = useState(0)
   const sourceIdentity = useRef('')
@@ -110,7 +112,7 @@ export default function App({ initialCloudSnapshot, cloudNavigationReady }: { in
     : route.page === 'transactions'
       ? <TransactionsPage ledger={ledger} route={route} currency={currency} cycle={cycle} onFilter={navigate} />
       : route.page === 'record'
-        ? <RecordPage ledger={ledger} />
+        ? <RecordPage key={recordingKey} ledger={ledger} ledgerKey={recordingKey} />
       : route.page === 'accounts'
         ? <AccountsPage ledger={ledger} currency={currency} section={route.section} onAccount={account => go('transactions', { account, allTime: true })} />
         : <SettingsPage ledger={ledger} month={route.month} cycle={cycle} onCycle={setCycle} hidden={hidden} onSource={openSource} controller={sourceController} />

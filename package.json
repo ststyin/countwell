@@ -15,7 +15,8 @@
     "cloud:sync": "node --import tsx scripts/sync-cloud-ledger.ts",
     "cloud:auto:install": "node --import tsx scripts/install-auto-sync.ts",
     "deploy": "npm run build && wrangler deploy",
-    "deploy:check": "npm run build && wrangler deploy --dry-run"
+    "deploy:check": "npm run build && wrangler deploy --dry-run",
+    "test:browser": "playwright test"
   },
   "dependencies": {
     "decimal.js": "^10.6.0",
@@ -27,6 +28,7 @@
     "tsx": "^4.23.15"
   },
   "devDependencies": {
+    "@playwright/test": "1.58.2",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

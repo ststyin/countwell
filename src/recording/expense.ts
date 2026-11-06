@@ -11,11 +11,20 @@ export interface ExpenseDraft {
   description: string
 }
 
+export type ExpenseStatus = 'unconfirmed' | 'pending' | 'failed' | 'committed' | 'publish_failed' | 'published'
+export const expenseIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+export function hasRecordedExpense(ledger: Ledger, id: string): boolean {
+  const marker = `countwell_id: "${id}"`
+  return (ledger.files ?? [{ content: ledger.source }]).some(file => file.content.includes(marker)
+    && file.content.split(/\r?\n/).some(line => line.trim() === marker))
+}
+
 /** Validate again in both the worker and the trusted ledger workflow. */
 export function validateExpense(input: unknown, ledger: Ledger): ExpenseDraft {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('请填写记账信息。')
   const d = input as Record<string, unknown>
-  if (typeof d.id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(d.id)) throw new Error('请求编号无效。')
+  if (typeof d.id !== 'string' || !expenseIdPattern.test(d.id)) throw new Error('请求编号无效。')
   if (typeof d.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d.date)) throw new Error('请选择有效日期。')
   const date = new Date(`${d.date}T00:00:00Z`)
   if (!Number.isFinite(date.valueOf()) || date.toISOString().slice(0, 10) !== d.date || d.date < '1900-01-01' || d.date > '9998-12-31') throw new Error('请选择有效日期。')

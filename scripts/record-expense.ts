@@ -2,7 +2,7 @@ import { lstat, mkdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import { dirname, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadOfficialLedger } from '../server/engine'
-import { expenseDirective, validateExpense } from '../src/recording/expense'
+import { expenseDirective, hasRecordedExpense, validateExpense } from '../src/recording/expense'
 
 /** Prepare and validate a candidate in a private checkout before any Git push. */
 export async function recordExpense(rootPath: string, entryPath: string, input: unknown): Promise<{ created: boolean; file: string }> {
@@ -11,8 +11,7 @@ export async function recordExpense(rootPath: string, entryPath: string, input: 
   const entry = resolve(root, entryPath)
   const original = await loadOfficialLedger(entry, { sourceRoot: root })
   const draft = validateExpense(input, original)
-  const marker = `countwell_id: "${draft.id}"`
-  if (original.files.some(file => file.content.split(/\r?\n/).some(line => line.trim() === marker))) return { created: false, file: '' }
+  if (hasRecordedExpense(original, draft.id)) return { created: false, file: '' }
   const file = `transactions/${draft.date.slice(0, 4)}/${draft.date.slice(5, 7)}.beancount`
   const target = resolve(root, file)
   await mkdir(dirname(target), { recursive: true })

@@ -25,11 +25,13 @@ export function createAutoSyncWorkflow(options: AutoSyncWorkflowOptions): string
     workflow_dispatch: {
       inputs: {
         validate_only: { description: 'Only validate and build, without publishing', type: 'boolean', default: false },
+        request_id: { description: 'Expense request identifier (optional)', type: 'string', required: false },
       },
     },
   }
   const workflow = {
     name: 'Update Countwell private ledger',
+    'run-name': "${{ inputs.request_id != '' && format('Countwell publish expense {0}', inputs.request_id) || 'Update Countwell private ledger' }}",
     on: events,
     permissions: { contents: 'read' },
     concurrency: { group: 'countwell-private-production', 'cancel-in-progress': false },

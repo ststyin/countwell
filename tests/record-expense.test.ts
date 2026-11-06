@@ -59,7 +59,8 @@ describe('validated GitHub expense recording', () => {
     const workflow = createRecordExpenseWorkflow()
     expect(workflow.indexOf('Prepare and validate expense')).toBeLessThan(workflow.indexOf('Commit validated expense'))
     expect(workflow).toContain('countwell-sync.yml')
-    expect(workflow).toContain('cancel-in-progress: false')
+    expect(workflow).toContain('queue: max')
+    expect(workflow).not.toContain('cancel-in-progress: true')
   })
   it('dispatches only to the authenticated owner’s private repository and can track its run', async () => {
     await fixture()
@@ -70,12 +71,12 @@ describe('validated GitHub expense recording', () => {
       const url = String(input); calls.push(url)
       if (url.endsWith('/repos/fixture/books')) return Response.json({ private: true, full_name: 'fixture/books', default_branch: 'main', owner: { id: 42, type: 'User' } })
       if (url.endsWith('/dispatches')) { const sent = JSON.parse(String(init?.body)); expect(sent.ref).toBe('main'); expect(JSON.parse(Buffer.from(sent.inputs.payload, 'base64').toString('utf8'))).toEqual(draft); return new Response(null, { status: 204 }) }
-      if (url.includes('/runs?')) return Response.json({ workflow_runs: [{ display_title: `Countwell expense ${id}`, head_branch: 'main', status: 'completed', conclusion: 'success' }] })
+      if (url.includes('/countwell-record.yml/runs?')) return Response.json({ workflow_runs: [{ id: 17, display_title: `Countwell expense ${id}`, head_branch: 'main', status: 'in_progress', conclusion: null }] })
       throw new Error('Unexpected endpoint')
     }
     const request = new Request('https://ledger.example/api/expenses', { method: 'POST', body: JSON.stringify(draft) })
     expect(await startExpense(request, snapshot, '42', 'fixture-token', fetcher)).toEqual({ id })
-    expect(await expenseStatus(id, snapshot, '42', 'fixture-token', fetcher)).toEqual({ status: 'success' })
+    expect(await expenseStatus(id, snapshot, '42', 'fixture-token', fetcher)).toEqual({ status: 'pending' })
     expect(calls).toHaveLength(4)
     await expect(expenseStatus(id, snapshot, '999', 'fixture-token', fetcher)).rejects.toMatchObject({ status: 403 })
   })

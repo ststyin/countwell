@@ -1,6 +1,6 @@
 import { stringify } from 'yaml'
 
-/** Installed in the ledger repository; no financial data is printed by the job. */
+/** Installed in the ledger repository alongside the private site update workflow. */
 export function createRecordExpenseWorkflow(): string {
   return '# Managed by Countwell. Validate the full ledger before pushing.\n' + stringify({
     name: 'Record Countwell expense',
@@ -11,7 +11,7 @@ export function createRecordExpenseWorkflow(): string {
       dry_run: { description: 'Validate without committing', type: 'boolean', default: false },
     } } },
     permissions: { contents: 'write', actions: 'write' },
-    concurrency: { group: 'countwell-record-expense', 'cancel-in-progress': false },
+    concurrency: { group: 'countwell-record-expense', queue: 'max' },
     jobs: { record: {
       'runs-on': 'ubuntu-latest', 'timeout-minutes': 10,
       steps: [
@@ -34,7 +34,9 @@ export function createRecordExpenseWorkflow(): string {
           '  git push -q origin "HEAD:refs/heads/$GITHUB_REF_NAME"',
           'fi',
         ].join('\n') },
-        { name: 'Start private site update', if: '${{ !inputs.dry_run }}', env: { GH_TOKEN: '${{ github.token }}' }, run: 'gh workflow run countwell-sync.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" -f validate_only=false' },
+        { name: 'Start private site update', if: '${{ !inputs.dry_run }}', env: {
+          GH_TOKEN: '${{ github.token }}', COUNTWELL_REQUEST_ID: '${{ inputs.request_id }}',
+        }, run: 'gh workflow run countwell-sync.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" -f validate_only=false -f request_id="$COUNTWELL_REQUEST_ID"' },
       ],
     } },
   }, { lineWidth: 0 })

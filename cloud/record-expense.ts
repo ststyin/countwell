@@ -1,5 +1,6 @@
 import type { SourceSnapshot } from '../src/lib/source-client'
-import { validateExpense } from '../src/recording/expense'
+import { expenseIdPattern, hasRecordedExpense, validateExpense } from '../src/recording/expense'
+import type { ExpenseStatus } from '../src/recording/expense'
 
 const workflow = 'countwell-record.yml'
 const jsonHeaders = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'Countwell' }
@@ -38,14 +39,58 @@ export async function startExpense(request: Request, snapshot: SourceSnapshot, u
   return { id: draft.id }
 }
 
-export async function expenseStatus(id: string, snapshot: SourceSnapshot, uid: string, token: string | undefined, fetcher: typeof fetch): Promise<{ status: 'pending' | 'success' | 'failed' }> {
-  if (!token || token.length > 4096) throw new RecordingError('记账功能尚未配置 GitHub 授权。', 503)
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(id)) throw new RecordingError('请求编号无效。')
-  const { path, branch } = await target(snapshot, uid, token, fetcher)
-  const response = await github(fetcher, token, `${path}/actions/workflows/${workflow}/runs?event=workflow_dispatch&per_page=100`)
+type WorkflowRun = { id: number; display_title: string; head_branch: string; status: string; conclusion: string | null }
+type JobStep = { name: string; conclusion: string | null }
+
+async function findRuns(fetcher: typeof fetch, token: string, path: string, workflowName: string, branch: string, title: string) {
+  const query = new URLSearchParams({ branch, event: 'workflow_dispatch', per_page: '100' })
+  const response = await github(fetcher, token, `${path}/actions/workflows/${workflowName}/runs?${query}`)
   if (!response.ok) throw new RecordingError('暂时无法查询提交状态。', 503)
-  const body = await response.json() as { workflow_runs?: Array<{ display_title?: unknown; head_branch?: unknown; status?: unknown; conclusion?: unknown }> }
-  const run = body.workflow_runs?.find(item => item.display_title === `Countwell expense ${id}` && item.head_branch === branch)
-  if (!run || run.status !== 'completed') return { status: 'pending' }
-  return { status: run.conclusion === 'success' ? 'success' : 'failed' }
+  const body = await response.json() as { workflow_runs: WorkflowRun[] }
+  return body.workflow_runs.filter(run => run.display_title === title && run.head_branch === branch)
+}
+
+export async function expenseStatus(id: string, snapshot: SourceSnapshot, uid: string, token: string | undefined, fetcher: typeof fetch): Promise<{ status: ExpenseStatus }> {
+  if (!expenseIdPattern.test(id)) throw new RecordingError('请求编号无效。')
+  id = id.toLowerCase()
+  if (hasRecordedExpense(snapshot.ledger, id)) return { status: 'published' }
+  if (!token || token.length > 4096) throw new RecordingError('记账功能尚未配置 GitHub 授权。', 503)
+  const { path, branch } = await target(snapshot, uid, token, fetcher)
+  const runs = await findRuns(fetcher, token, path, workflow, branch, `Countwell expense ${id}`)
+  if (!runs.length) return { status: 'unconfirmed' }
+
+  // The same ID may have been dispatched more than once after a network error.
+  // A canceled retry must not hide a successful write from an earlier run.
+  let writeUnconfirmed = false
+  let committed = false
+  let updateStarted = false
+  for (const run of runs) {
+    if (!Number.isSafeInteger(run.id) || run.id <= 0) throw new RecordingError('暂时无法查询提交状态。', 503)
+    if (run.status !== 'completed') continue
+    const response = await github(fetcher, token, `${path}/actions/runs/${run.id}/jobs?filter=all&per_page=100`)
+    if (!response.ok) throw new RecordingError('暂时无法查询提交状态。', 503)
+    const body = await response.json() as { jobs: { steps?: JobStep[] }[] }
+    for (const { steps = [] } of body.jobs) {
+      const write = steps.find(step => step.name === 'Commit validated expense')
+      if (write?.conclusion === 'success') {
+        committed = true
+        updateStarted ||= steps.some(step => step.name === 'Start private site update' && step.conclusion === 'success')
+      } else if (write && write.conclusion !== 'skipped') {
+        // A push can reach GitHub before the runner loses the connection.
+        writeUnconfirmed = true
+      }
+    }
+  }
+
+  const pending = runs.some(run => run.status !== 'completed')
+  if (committed) {
+    if (!updateStarted) return { status: pending ? 'committed' : 'publish_failed' }
+    const updates = await findRuns(fetcher, token, path, 'countwell-sync.yml', branch, `Countwell publish expense ${id}`)
+    // A successful build may have skipped deployment because a newer ledger
+    // exists. Only the marker in the served snapshot confirms publication.
+    if (updates[0]?.status === 'completed' && updates[0].conclusion !== 'success' && !pending) return { status: 'publish_failed' }
+    return { status: 'committed' }
+  }
+  if (pending) return { status: 'pending' }
+  return { status: writeUnconfirmed ? 'unconfirmed' : 'failed' }
 }

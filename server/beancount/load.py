@@ -89,7 +89,7 @@ def main(request):
     parser.parse_file = guarded_parse
     loader.encryption.is_encrypted_file = guarded_encrypted
     # No pickle cache is read, created or removed. This private v3 entry is
-    # covered by the real-engine integration tests and dependency major pin.
+    # covered by the real-engine integration tests and the pinned dependency.
     entries, errors, options = loader._uncached_load_file(str(entry), None, None, None)
     if errors:
         def diagnostic(error):

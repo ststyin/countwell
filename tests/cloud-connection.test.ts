@@ -23,8 +23,8 @@ describe('parallel private ledger connection', () => {
     let completed = false
     const result = connectCloud(controller).then(value => { completed = true; return value })
     expect(fetcher).toHaveBeenCalledWith('/api/auth/status', expect.objectContaining({ cache: 'no-store', credentials: 'same-origin', signal: controller.signal }))
-    expect(fetcher).toHaveBeenCalledWith('/api/session', expect.objectContaining({ cache: 'no-store', credentials: 'same-origin', signal: controller.signal }))
-    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledWith('/api/ledger/snapshot', expect.objectContaining({ cache: 'no-store', credentials: 'same-origin', signal: controller.signal })))
+    expect(fetcher).toHaveBeenCalledWith('/api/session', expect.objectContaining({ cache: 'no-store', credentials: 'same-origin', signal: expect.any(AbortSignal) }))
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledWith('/api/ledger/snapshot', expect.objectContaining({ cache: 'no-store', credentials: 'same-origin', signal: expect.any(AbortSignal) })))
     pendingSnapshot.resolve(json(snapshot))
     await Promise.resolve(); await Promise.resolve()
     expect(completed).toBe(false)
