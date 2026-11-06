@@ -1,12 +1,15 @@
 import { stringify } from 'yaml'
 
-/** Installed in the private ledger repository and dispatched by the daily automation. */
+/** Installed in the private ledger repository for scheduled and manual runs. */
 export function createFundNavWorkflow(): string {
   return '# Managed by Countwell. Only appends validated official fund quotes.\n' + stringify({
     name: 'Update Countwell fund NAV',
-    on: { workflow_dispatch: { inputs: {
-      dry_run: { description: 'Validate without committing or publishing', type: 'boolean', default: true },
-    } } },
+    on: {
+      schedule: [{ cron: '59 23 * * *', timezone: 'Asia/Shanghai' }],
+      workflow_dispatch: { inputs: {
+        dry_run: { description: 'Validate without committing or publishing', type: 'boolean', default: true },
+      } },
+    },
     permissions: { contents: 'write', actions: 'write' },
     concurrency: { group: 'countwell-record-expense', queue: 'max' },
     jobs: {
@@ -24,7 +27,7 @@ export function createFundNavWorkflow(): string {
             COUNTWELL_LEDGER_DIR: '${{ github.workspace }}/ledger',
             COUNTWELL_LEDGER_ENTRY: '${{ vars.COUNTWELL_LEDGER_ENTRY }}',
           }, run: 'node --import tsx scripts/update-fund-nav.ts' },
-          { name: 'Commit validated quotes', id: 'commit', if: '${{ !inputs.dry_run }}', 'working-directory': 'ledger', run: [
+          { name: 'Commit validated quotes', id: 'commit', if: "${{ github.event_name == 'schedule' || !inputs.dry_run }}", 'working-directory': 'ledger', run: [
             'git add -- investments/prices.beancount',
             'if git diff --cached --quiet; then exit 0; fi',
             'git diff --cached --check',
