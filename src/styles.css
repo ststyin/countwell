@@ -125,9 +125,8 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace,
 .currency-picker > svg { position: absolute; right: 9px; pointer-events: none; width: 13px; height: 13px; }
 .currency-picker select { appearance: none; }
 .page-content { max-width: 1312px; margin: 0 auto; padding: 26px 32px 40px; }
-.page-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.page-header { display: flex; justify-content: flex-end; margin-bottom: 20px; }
 .page-eyebrow { display: block; color: var(--accent); font-size: 11px; font-weight: 500; letter-spacing: 1.2px; margin-bottom: 8px; }
-.screen-heading, .page-header h1 { font-size: 27px; line-height: 1.25; font-weight: 500; letter-spacing: -.7px; }
 .page-subtitle { color: var(--muted); font-size: 12px; margin-top: 9px; line-height: 1.6; }
 .month-control { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 0; padding: 1px; min-height: 36px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .month-control button { width: 30px; min-height: 32px; display: inline-grid; place-items: center; color: var(--text-secondary); border-radius: 7px; }
@@ -214,7 +213,8 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .month-label .month-input { position: absolute; inset: 0; width: 100%; max-width: none; min-height: 32px; opacity: 0; font-size: 16px; cursor: pointer; }
 .month-control:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; }
 .month-control .icon-button { width: 30px; min-width: 30px; height: 32px; border: 0; border-radius: 7px; }
-.period-control { display: grid; flex: 0 0 auto; grid-template-columns: auto auto; align-items: center; justify-items: end; gap: 4px 6px; min-width: 0; }
+.period-control { display: grid; grid-template-columns: auto auto; align-items: center; justify-items: end; gap: 4px 6px; }
+.period-control > .month-control, .period-control > .period-scope:only-child { grid-column: 2; grid-row: 1; }
 .period-range { grid-column: 1 / -1; color: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; line-height: 1.25; white-space: nowrap; }
 .period-scope { min-height: 32px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted); background: var(--surface); font-size: 11px; white-space: nowrap; }
 .period-scope[aria-pressed='true'] { color: var(--accent); background: var(--accent-soft); }
@@ -397,9 +397,8 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .topbar-actions .demo-badge > span { display: none; }
   .currency-picker select { min-height: 40px; padding-left: 8px; padding-right: 22px; border-radius: 10px; font-size: 12px; background: transparent; }
   .page-content { padding: 8px 16px calc(80px + env(safe-area-inset-bottom, 0px)); }
-  .page-header { gap: 10px; align-items: center; margin-bottom: 18px; }
+  .page-header { margin-bottom: 18px; }
   .page-eyebrow { font-size: 11px; letter-spacing: .9px; margin-bottom: 6px; }
-  .screen-heading, .page-header h1 { font-size: 22px; letter-spacing: -.5px; }
   .page-subtitle { font-size: 11px; margin-top: 6px; }
   .month-control { min-height: 36px; gap: 0; padding: 1px; border-radius: 9px; }
   .month-control button { width: 28px; min-height: 32px; }
@@ -460,9 +459,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .topbar { padding-left: 16px; padding-right: 16px; }
   .page-content { padding-left: 16px; padding-right: 16px; }
   .topbar-actions { gap: 5px; }
-  .page-header { gap: 8px; }
-  .page-header > :first-child { flex: 1 1 auto; }
-  .page-header .period-control { margin-left: auto; }
   .stat-card { padding: 13px 12px; min-height: 110px; }
   .stat-amount { font-size: clamp(18px, 5.4vw, 20px); }
   .panel { padding: 18px 16px; }
@@ -729,7 +725,6 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 }
 
 @media (max-width: 760px) {
-  .page-header .page-eyebrow { display: none; }
   .topbar select.currency-picker,
   .month-label .month-input,
   .search-field > input,

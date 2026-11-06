@@ -50,6 +50,7 @@ export default function App({ initialCloudSnapshot, cloudNavigationReady }: { in
   useEffect(() => { try { localStorage.removeItem('countwell.viewportDiagnostics') } catch { /* The temporary diagnostic preference is optional. */ } }, [])
   const period = reportPeriod(route.month, cycle)
   const datedPage = route.page === 'overview' || route.page === 'transactions'
+  const allTimeTransactions = route.page === 'transactions' && route.allTime
   const [sourceOpen, setSourceOpen] = useState(false)
   const sourceTrigger = useRef<HTMLElement | null>(null)
   const openSource = () => { sourceTrigger.current = document.activeElement as HTMLElement; setSourceOpen(true) }
@@ -80,7 +81,7 @@ export default function App({ initialCloudSnapshot, cloudNavigationReady }: { in
       localStorage.setItem('countwell.privacy', String(hidden))
     } catch { /* The ledger is never stored in browser storage. */ }
   }, [hidden])
-  useEffect(() => { document.title = `${active.title}${datedPage ? ` · ${route.allTime && route.page === 'transactions' ? '全部时间' : monthLabel(route.month)}` : ''} · Countwell` }, [active.title, route.month, datedPage, route.allTime])
+  useEffect(() => { document.title = `${active.title}${datedPage ? ` · ${allTimeTransactions ? '全部时间' : monthLabel(route.month)}` : ''} · Countwell` }, [active.title, route.month, datedPage, allTimeTransactions])
   useEffect(() => {
     if (!sourceOpen) return
     const previousOverflow = document.body.style.overflow
@@ -132,7 +133,23 @@ export default function App({ initialCloudSnapshot, cloudNavigationReady }: { in
           {sourceController.real && sourceController.backendAvailable === false && <div className="notice"><span>连接中断 · 保留上次数据</span><button className="text-action" onClick={() => go('settings')}>检查连接</button></div>}
           {sourceController.error && sourceController.real && <div className="notice source-error"><span>更新失败 · 保留上次数据</span><button className="text-action" onClick={() => go('settings')}>查看错误</button></div>}
           {pwa.updateAvailable && <div className="notice update-notice"><span>有可用更新</span><button className="text-action" onClick={() => pwa.applyUpdate()}>更新 <ArrowUpRight size={15} /></button></div>}
-          <header className="page-header"><h1 className="screen-heading">{active.title}</h1>{datedPage && <div className="period-control">{route.page === 'transactions' && <button className="period-scope" aria-pressed={Boolean(route.allTime)} onClick={() => navigate({ allTime: !route.allTime, date: undefined })}>{route.allTime ? '全部时间' : '全部'}</button>}{!(route.page === 'transactions' && route.allTime) && <><div className="month-control"><button className="icon-button" aria-label="上个月" onClick={() => navigate({ month: shiftMonth(route.month, -1), date: undefined })}><ChevronLeft size={15} /></button><label className="month-label"><span>{route.month.replace('-', '.')}</span><input type="month" className="month-input" aria-label="查询月份" value={route.month} min="1900-01" max="9998-12" onChange={e => { if (e.target.value) navigate({ month: e.target.value, date: undefined }) }} /></label><button className="icon-button" aria-label="下个月" onClick={() => navigate({ month: shiftMonth(route.month, 1), date: undefined })}><ChevronRight size={15} /></button></div>{cycle.mode !== 'calendar' && <span className="period-range">{period.start.slice(5).replace('-', '.')}–{period.end.slice(5).replace('-', '.')}</span>}</>}</div>}</header>
+          <h1 className="sr-only">{active.title}</h1>
+          {datedPage && <header className="page-header">
+            <div className="period-control">
+              {route.page === 'transactions' && <button className="period-scope" aria-pressed={Boolean(route.allTime)} onClick={() => navigate({ allTime: !route.allTime, date: undefined })}>{allTimeTransactions ? '全部时间' : '全部'}</button>}
+              {!allTimeTransactions && <>
+                <div className="month-control">
+                  <button className="icon-button" aria-label="上个月" onClick={() => navigate({ month: shiftMonth(route.month, -1), date: undefined })}><ChevronLeft size={15} /></button>
+                  <label className="month-label">
+                    <span>{route.month.replace('-', '.')}</span>
+                    <input type="month" className="month-input" aria-label="查询月份" value={route.month} min="1900-01" max="9998-12" onChange={e => { if (e.target.value) navigate({ month: e.target.value, date: undefined }) }} />
+                  </label>
+                  <button className="icon-button" aria-label="下个月" onClick={() => navigate({ month: shiftMonth(route.month, 1), date: undefined })}><ChevronRight size={15} /></button>
+                </div>
+                {cycle.mode !== 'calendar' && <span className="period-range">{period.start.slice(5).replace('-', '.')}–{period.end.slice(5).replace('-', '.')}</span>}
+              </>}
+            </div>
+          </header>}
           {pageContent}
         </div>
       </main>
