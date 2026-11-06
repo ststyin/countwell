@@ -11,8 +11,13 @@ export interface ExpenseDraft {
   description: string
 }
 
-export type ExpenseStatus = 'unconfirmed' | 'pending' | 'failed' | 'committed' | 'publish_failed' | 'published'
+export const expenseStatuses = ['unconfirmed', 'pending', 'failed', 'committed', 'publish_failed', 'published'] as const
+export type ExpenseStatus = typeof expenseStatuses[number]
 export const expenseIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+export function isExpenseWritten(status?: ExpenseStatus) {
+  return status === 'committed' || status === 'publish_failed' || status === 'published'
+}
 
 export function hasRecordedExpense(ledger: Ledger, id: string): boolean {
   const marker = `countwell_id: "${id}"`

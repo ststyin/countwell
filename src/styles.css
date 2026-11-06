@@ -533,6 +533,8 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .investment-overview .investment-overview-value > .money { font-size: 30px; letter-spacing: -.7px; }
 .investment-overview small, .investment-caption { color: var(--muted); font-size: 11px; line-height: 1.8; }
 .investment-caption { margin: 0 0 12px; }
+.investment-quote-stale { color: var(--danger); }
+.investment-quote-date time { white-space: nowrap; }
 .investment-item + .investment-item { border-top: 1px solid var(--line-soft); }
 .investment-item-summary { display: grid; grid-template-columns: 35px minmax(0, 1fr) minmax(90px, auto) 16px; align-items: center; gap: 12px; min-height: 76px; padding: 20px 0; list-style: none; cursor: pointer; }
 .investment-item-summary::-webkit-details-marker, .investment-history > summary::-webkit-details-marker { display: none; }
@@ -857,6 +859,16 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .record-success { display: grid; justify-items: center; gap: 15px; padding: 32px 0; text-align: center; }
 .record-success p { color: var(--text-secondary); }
 .record-success-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 18px; color: var(--expense); background: var(--expense-soft); }
+.record-history { border-top: 1px solid var(--line-soft); margin-top: 20px; padding-top: 16px; }
+.record-history > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+.record-history > summary::-webkit-details-marker { display: none; }
+.record-history > summary span, .record-history > summary svg, .record-history p, .record-history small { color: var(--text-secondary); }
+.record-history > summary svg { margin-left: auto; }
+.record-history[open] > summary svg { transform: rotate(180deg); }
+.record-history p { font-size: 12px; margin: 12px 0; }
+.record-history ul { list-style: none; margin: 0; padding: 0; }
+.record-history-item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; width: 100%; padding: 10px 8px; border: 0; border-top: 1px solid var(--line-soft); background: transparent; color: var(--text); text-align: left; font-size: 13px; cursor: pointer; }
+.record-history-item:hover, .record-history-item[aria-pressed='true'] { background: var(--surface-raised); }
 @media (max-width: 760px) { .record-fields { grid-template-columns: minmax(0, 1fr); gap: 14px; } .record-panel { padding: 18px; } }
 
 /* The frame keeps all controls at the same visible size. */

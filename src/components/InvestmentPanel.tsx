@@ -13,6 +13,29 @@ import { investmentLabels } from '../lib/investmentLabels'
 type InvestmentSummary = ReturnType<typeof summarizeInvestments>
 type Holding = InvestmentSummary['holdings'][number]
 
+const staleQuoteDays = 7
+const dayMs = 86_400_000
+
+function quoteDate(holding: Holding) {
+  return holding.marketValue === null ? null : holding.lots[0].priceDate
+}
+
+function quoteIsStale(date: string, today: number) {
+  return today - Date.parse(date) >= staleQuoteDays * dayMs
+}
+
+function QuoteDates({ dates, today }: { dates: string[]; today: number }) {
+  if (!dates.length) return null
+  const ordered = [...dates].sort()
+  const oldest = ordered[0]
+  const latest = ordered[ordered.length - 1]
+  const stale = dates.filter(date => quoteIsStale(date, today)).length
+  return <small className="investment-quote-date">
+    报价 <time dateTime={oldest}>{oldest}</time>{latest !== oldest && <> 至 <time dateTime={latest}>{latest}</time></>}
+    {stale > 0 && <span className="investment-quote-stale"> · {dates.length === 1 ? '报价较旧' : `${stale} 项报价较旧`}</span>}
+  </small>
+}
+
 function Gain({ amount, currency }: { amount: string | null; currency: string }) {
   const { hidden } = useContext(DisplayContext)
   const rounded = amount === null ? null : new Decimal(amount).toDecimalPlaces(2)
@@ -34,16 +57,17 @@ function MonetaryInvestment({ account, ledger, label }: { account: AccountBalanc
   </details>
 }
 
-function HoldingItem({ holding, name, accountLabel, onAccount }: { holding: Holding; name: string; accountLabel: string; onAccount: (account: string) => void }) {
+function HoldingItem({ holding, name, accountLabel, onAccount, today }: { holding: Holding; name: string; accountLabel: string; onAccount: (account: string) => void; today: number }) {
   const { hidden } = useContext(DisplayContext)
   const [allLots, setAllLots] = useState(false)
   const quote = holding.lots[0]
+  const date = quoteDate(holding)
   const lots = allLots ? holding.lots : holding.lots.slice(0, 5)
   const shares = (value: string) => hidden ? '••••' : formatAmount(value, 4)
   return <details className="investment-item holding-item">
     <summary className="investment-item-summary">
       <span className="account-avatar investment-avatar"><TrendingUp size={21} strokeWidth={1.6} /></span>
-      <span className="investment-item-name"><strong>{name}</strong><small>{holding.commodity} · {holding.currency || '币种待确认'}</small></span>
+      <span className="investment-item-name"><strong>{name}</strong><small>{holding.commodity} · {holding.currency || '币种待确认'}</small>{date && <QuoteDates dates={[date]} today={today} />}</span>
       <span className="investment-item-value"><small>{holding.marketValue === null ? '缺少报价' : '持仓市值'}</small><Money amount={holding.marketValue} currency={holding.currency} /></span>
       <ChevronDown size={16} className="investment-chevron" />
       <span className="holding-summary-metrics">
@@ -83,17 +107,19 @@ function HoldingItem({ holding, name, accountLabel, onAccount }: { holding: Hold
 export default function InvestmentPanel({ summary, ledger, emptyAccounts, onAccount }: { summary: InvestmentSummary; ledger: Ledger; currency: string; emptyAccounts: LedgerAccount[]; onAccount: (account: string) => void }) {
   const labels = accountLabels(ledger.accounts)
   const names = investmentLabels(ledger)
+  const now = new Date()
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
   const activeBalances = summary.monetaryAssets.filter(account => !new Decimal(account.balance).isZero())
   const zeroBalances = summary.monetaryAssets.filter(account => new Decimal(account.balance).isZero())
   return <section className="panel investment-panel"><SectionTitle title="投资持仓" subtitle="全部账本持仓 · 按账本最新报价估值" />
     {summary.totals.map(total => <div className="investment-overview" key={total.currency}>
-      <div className="investment-overview-value"><span>持仓总市值 · {total.currency || '币种待确认'}</span><Money amount={total.marketValue} currency={total.currency} /><small>{total.count} 项持仓{total.marketValue === null ? ' · 报价不完整' : ''}</small></div>
+      <div className="investment-overview-value"><span>持仓总市值 · {total.currency || '币种待确认'}</span><Money amount={total.marketValue} currency={total.currency} /><small>{total.count} 项持仓{total.marketValue === null ? ' · 报价不完整' : ''}</small><QuoteDates dates={summary.holdings.filter(holding => holding.currency === total.currency).flatMap(holding => quoteDate(holding) ?? [])} today={today} /></div>
       <div><span>在持基金累计投入</span><Money amount={total.invested} currency={total.currency} /></div>
       <div><span>在持基金累计盈亏</span><Gain amount={total.cumulativePnl} currency={total.currency} /><Rate value={total.cumulativeReturnRate} /></div>
     </div>)}
-    {summary.holdings.length > 0 && <p className="investment-caption">累计盈亏包含这些基金历史卖出的盈亏；上方合计仅覆盖当前持有的基金。按账本买卖及期初成本计算，不含独立分红；收益率非年化。</p>}
+    {summary.holdings.length > 0 && <p className="investment-caption">距今至少 {staleQuoteDays} 天的报价标为较旧。累计盈亏包含这些基金历史卖出的盈亏；上方合计仅覆盖当前持有的基金。按账本买卖及期初成本计算，不含独立分红；收益率非年化。</p>}
     <div className="position-list">
-      {summary.holdings.map(holding => <HoldingItem key={JSON.stringify([holding.account, holding.commodity, holding.currency])} holding={holding} name={names.get(holding.account) ?? holding.commodity} accountLabel={labels.get(holding.account) ?? holding.account} onAccount={onAccount} />)}
+      {summary.holdings.map(holding => <HoldingItem key={JSON.stringify([holding.account, holding.commodity, holding.currency])} holding={holding} name={names.get(holding.account) ?? holding.commodity} accountLabel={labels.get(holding.account) ?? holding.account} onAccount={onAccount} today={today} />)}
       {activeBalances.length > 0 && <div className="investment-balances"><h3>其他投资余额</h3><p className="holding-note">仅记录金额的账户，单独展示账面余额。</p>{activeBalances.map(account => <MonetaryInvestment key={`${account.name}:${account.currency}`} account={account} ledger={ledger} label={names.get(account.name) ?? labels.get(account.name) ?? account.name} />)}</div>}
       {(zeroBalances.length > 0 || emptyAccounts.length > 0) && <details className="investment-history"><summary>零余额与未持仓账户 <span>{zeroBalances.length + emptyAccounts.length}</span><ChevronDown size={15} /></summary>
         {zeroBalances.map(account => <MonetaryInvestment key={`${account.name}:${account.currency}`} account={account} ledger={ledger} label={names.get(account.name) ?? labels.get(account.name) ?? account.name} />)}

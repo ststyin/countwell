@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Check, LoaderCircle } from 'lucide-react'
+import { Check, ChevronDown, LoaderCircle } from 'lucide-react'
 import type { Ledger } from '../domain/types'
 import type { ExpenseDraft, ExpenseStatus } from '../recording/expense'
 import { isInvestmentAccount } from '../domain/reports'
-import { expenseIdPattern, hasRecordedExpense, validateExpense } from '../recording/expense'
+import { expenseIdPattern, hasRecordedExpense, isExpenseWritten, validateExpense } from '../recording/expense'
+import { recentExpenseReceipts, recentReceiptLimit, rememberExpenseReceipt } from '../recording/receipts'
+import type { ExpenseReceipt } from '../recording/receipts'
 import { accountLabels } from '../lib/accountLabels'
 import { sourceRequest } from '../lib/source-client'
 import { cloudMode } from '../lib/runtime'
@@ -29,13 +31,19 @@ function restoreRequest(key: string) {
   } catch { return null }
 }
 
-function isWritten(status?: ExpenseStatus) {
-  return status === 'committed' || status === 'publish_failed' || status === 'published'
-}
+const receiptTime = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })
 
 export default function RecordPage({ ledger, ledgerKey = '' }: { ledger: Ledger; ledgerKey?: string }) {
   const storageKey = `countwell.pendingExpense:${ledgerKey}`
-  const [requestId, setRequestId] = useState(() => cloudMode ? restoreRequest(storageKey) : null)
+  const [receipts, setReceipts] = useState(() => cloudMode ? recentExpenseReceipts(ledgerKey) : [])
+  const [requestId, setRequestId] = useState(() => {
+    if (!cloudMode) return null
+    const current = restoreRequest(storageKey)
+    if (current) return current
+    const latest = receipts[0]
+    return latest && !isExpenseWritten(latest.state) && !hasRecordedExpense(ledger, latest.id) ? latest.id : null
+  })
+  const initialRequest = useRef(requestId)
   const [editing, setEditing] = useState(!requestId)
   const [date, setDate] = useState(today)
   const [amount, setAmount] = useState('')
@@ -43,7 +51,7 @@ export default function RecordPage({ ledger, ledgerKey = '' }: { ledger: Ledger;
   const [category, setCategory] = useState('')
   const [payee, setPayee] = useState('')
   const [description, setDescription] = useState('')
-  const [status, setStatus] = useState<ExpenseStatus>()
+  const [status, setStatus] = useState(() => receipts.find(receipt => receipt.id === requestId)?.state)
   const published = useMemo(() => requestId && hasRecordedExpense(ledger, requestId), [ledger, requestId])
   const [checking, setChecking] = useState(false)
   const [message, setMessage] = useState('')
@@ -52,6 +60,11 @@ export default function RecordPage({ ledger, ledgerKey = '' }: { ledger: Ledger;
   const labels = accountLabels(ledger.accounts)
   const payments = ledger.accounts.filter(a => (a.kind === 'asset' && a.role === 'cash' && !isInvestmentAccount(a.name)) || a.kind === 'liability')
   const categories = ledger.accounts.filter(a => a.kind === 'expense')
+
+  const remember = useCallback((id: string, state?: ExpenseStatus) => {
+    const updated = rememberExpenseReceipt(ledgerKey, id, state)
+    if (updated) setReceipts(updated)
+  }, [ledgerKey])
 
   const monitor = useCallback(async (id: string, expense?: ExpenseDraft, retry = false) => {
     if (operation.current) return
@@ -66,7 +79,8 @@ export default function RecordPage({ ledger, ledgerKey = '' }: { ledger: Ledger;
       )
       // A deployed shell can also outlive a Worker rollback.
       const observed = result.state ?? (result.status === 'success' ? 'committed' : result.status === 'failed' ? 'unconfirmed' : 'pending')
-      setStatus(previous => isWritten(previous) && !isWritten(observed) ? previous : observed)
+      setStatus(previous => isExpenseWritten(previous) && !isExpenseWritten(observed) ? previous : observed)
+      remember(id, observed)
       return observed
     }
     try {
@@ -97,16 +111,23 @@ export default function RecordPage({ ledger, ledgerKey = '' }: { ledger: Ledger;
         setChecking(false)
       }
     }
-  }, [])
+  }, [remember])
 
   useEffect(() => {
-    const id = cloudMode ? restoreRequest(storageKey) : null
+    const id = initialRequest.current
     if (id) void monitor(id)
     return () => {
       operation.current?.abort()
       operation.current = null
     }
-  }, [storageKey, monitor])
+  }, [monitor])
+
+  useEffect(() => {
+    if (!cloudMode) return
+    const refresh = () => setReceipts(recentExpenseReceipts(ledgerKey))
+    window.addEventListener('storage', refresh)
+    return () => window.removeEventListener('storage', refresh)
+  }, [ledgerKey])
 
   function send() {
     if (operation.current) return
@@ -125,10 +146,23 @@ export default function RecordPage({ ledger, ledgerKey = '' }: { ledger: Ledger;
       setMessage('无法保存提交编号，请允许站点存储后重试。')
       return
     }
+    remember(expense.id)
     draft.current = expense
     setRequestId(expense.id)
     setEditing(false)
     void monitor(expense.id, expense, Boolean(requestId))
+  }
+
+  function resetEditor() {
+    operation.current?.abort()
+    operation.current = null
+    draft.current = null
+    setChecking(false)
+    setMessage('')
+    setAmount('')
+    setPayee('')
+    setDescription('')
+    setDate(today())
   }
 
   function newEntry() {
@@ -136,19 +170,35 @@ export default function RecordPage({ ledger, ledgerKey = '' }: { ledger: Ledger;
       setMessage('无法清除提交编号，请允许站点存储后重试。')
       return
     }
-    operation.current?.abort()
-    operation.current = null
-    draft.current = null
+    if (requestId && published) remember(requestId, 'published')
+    resetEditor()
     setRequestId(null)
     setStatus(undefined)
-    setChecking(false)
-    setMessage('')
     setEditing(true)
-    setAmount('')
-    setPayee('')
-    setDescription('')
-    setDate(today())
   }
+
+  function openReceipt(receipt: ExpenseReceipt) {
+    if (receipt.id === requestId && !editing) return
+    try { sessionStorage.setItem(storageKey, receipt.id) } catch {
+      // This receipt is already available in local history.
+    }
+    resetEditor()
+    setRequestId(receipt.id)
+    setStatus(receipt.state)
+    setEditing(false)
+    void monitor(receipt.id)
+  }
+
+  const history = cloudMode && receipts.length > 0 && <details className="record-history">
+    <summary>最近提交 <span>{receipts.length}</span><ChevronDown size={16} /></summary>
+    <p>此浏览器保留最近 {recentReceiptLimit} 笔的提交编号、时间和上次查询状态。点击一笔可查看最新状态。</p>
+    <ul>{receipts.map(receipt => <li key={receipt.id}>
+      <button type="button" className="record-history-item" aria-pressed={receipt.id === requestId && !editing} onClick={() => openReceipt(receipt)}>
+        <span><time dateTime={new Date(receipt.submittedAt).toISOString()}>{receiptTime.format(receipt.submittedAt)}</time><small> · {receipt.id.slice(-6)}</small></span>
+        <small>{receipt.state ? statusText[receipt.state][0] : '待查询'}</small>
+      </button>
+    </li>)}</ul>
+  </details>
 
   if (requestId && !editing) {
     const visibleStatus = published ? 'published' : status
@@ -157,17 +207,18 @@ export default function RecordPage({ ledger, ledgerKey = '' }: { ledger: Ledger;
       : ['暂未确认入账', '请再次查询提交状态。']
     return <section className="record-panel panel">
       <div className="record-success" aria-live="polite">
-        <span className="record-success-icon">{isWritten(visibleStatus) ? <Check size={22} /> : <LoaderCircle size={22} className={checking ? 'spin' : ''} />}</span>
+        <span className="record-success-icon">{isExpenseWritten(visibleStatus) ? <Check size={22} /> : <LoaderCircle size={22} className={checking ? 'spin' : ''} />}</span>
         <h2>{heading}</h2>
         <p>{detail}</p>
         {message && visibleStatus !== 'published' && <p className="record-message" role="alert">{message}</p>}
-        {isWritten(visibleStatus) && <button className="button button-primary" type="button" onClick={newEntry}>再记一笔</button>}
+        {isExpenseWritten(visibleStatus) && <button className="button button-primary" type="button" onClick={newEntry}>再记一笔</button>}
         {!checking && visibleStatus !== 'published' && <button className="button" type="button" onClick={() => void monitor(requestId)}>查询提交状态</button>}
         {!checking && (visibleStatus === 'failed' || visibleStatus === 'unconfirmed') && <button className="button" type="button" onClick={() => {
           if (draft.current) void monitor(requestId, draft.current, true)
           else { setMessage(''); setEditing(true) }
         }}>{draft.current ? '重试同一笔支出' : '重新填写同一笔支出'}</button>}
       </div>
+      {history}
     </section>
   }
 
@@ -189,5 +240,6 @@ export default function RecordPage({ ledger, ledgerKey = '' }: { ledger: Ledger;
         void monitor(requestId)
       }}>返回提交状态</button>}
     </form>
+    {history}
   </section>
 }
