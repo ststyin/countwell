@@ -85,7 +85,7 @@ describe('report period presentation', () => {
   Equity:Opening -100 CNY
 `)
     const html = renderToStaticMarkup(<AccountsPage ledger={cards} currency="CNY" onAccount={() => {}} />)
-    const cash = html.slice(html.indexOf('class="panel account-list-panel"'), html.indexOf('class="panel liability-panel"'))
+    const cash = html.match(/<section class="account-list-panel">([\s\S]*?)<\/section>/)?.[1] ?? ''
     expect(cash).toContain('3 个账户')
     expect(cash).toContain('Bank:CMB:Debit')
     expect(cash).toContain('Bank:BOCOM:Debit')

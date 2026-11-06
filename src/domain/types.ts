@@ -178,6 +178,7 @@ export interface AccountReport {
   investments: string | null;
   liabilities: string;
   overpayments: string;
+  availableFunds: string;
   netWorth: string | null;
   previousCash: string;
   cashChange: string;

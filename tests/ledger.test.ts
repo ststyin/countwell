@@ -112,6 +112,7 @@ describe('friendly presentation over double-entry data', () => {
     const report = getAccounts(ledger,'2026-10');
     expect(report.cash).toBe('990');
     expect(report.liabilities).toBe('10');
+    expect(report.availableFunds).toBe('980');
     expect(report.netWorth).toBe('980');
     expect(report.accounts.find(account => account.name === 'Liabilities:Card')?.balance).toBe('-10');
     expect(getAccounts(ledger,'2026-09').cash).toBe('1000');
@@ -130,7 +131,7 @@ describe('friendly presentation over double-entry data', () => {
   Liabilities:Card 25 CNY
   Equity:Opening -25 CNY
 `);
-    expect(getAccounts(overpaid,'2026-10')).toMatchObject({liabilities:'0',overpayments:'25',netWorth:'25'});
+    expect(getAccounts(overpaid,'2026-10')).toMatchObject({liabilities:'0',overpayments:'25',availableFunds:'0',netWorth:'25'});
   });
 });
 
