@@ -1,8 +1,8 @@
 import { useContext } from 'react'
 import { ArrowRight, ChevronDown, CircleAlert } from 'lucide-react'
-import type { Activity } from '../domain/types'
+import type { Activity, ActivityAmount } from '../domain/types'
 import { CategoryIcon, DisplayContext, EmptyState, Money } from './ui'
-import { shortDate } from '../lib/format'
+import { formatAmount, shortDate } from '../lib/format'
 
 export const kindLabels = { income: '收入', expense: '支出', refund: '退款', transfer: '转账', investment: '投资' }
 
@@ -11,16 +11,34 @@ export default function TransactionList({ transactions }: { transactions: Activi
   const rawAmount = (amount: string) => <span className="money">{hidden ? '••••' : amount}</span>
   if (!transactions.length) return <EmptyState title="暂无交易" description="" />
   return <div className="transaction-list">{transactions.map(tx => {
-    const sign = tx.amountUnavailable ? '' : tx.direction === 'out' ? '−' : tx.direction === 'in' ? '+' : ''
-    const label = tx.kind === 'refund' ? '冲减支出' : tx.kind === 'transfer' ? '账户转账' : tx.kind === 'investment' ? '持仓变动' : tx.category
+    const settlement = tx.investmentSettlement
+    const cashFlows = settlement?.cashFlows ?? []
+    const matchingCash = cashFlows.filter(flow => flow.currency === tx.currency)
+    const primaryCash = !tx.amountUnavailable && matchingCash.length === 1 ? matchingCash[0] : undefined
+    const direction = primaryCash?.direction ?? tx.direction
+    const displayKind = settlement ? 'investment' : tx.kind
+    const sign = tx.amountUnavailable ? '' : direction === 'out' ? '−' : direction === 'in' ? '+' : ''
+    const tradeLabel = settlement?.action === 'sell' ? '投资卖出' : settlement?.action === 'buy' ? '投资买入' : '持仓变动'
+    const label = settlement ? `${tradeLabel}${primaryCash ? ` · ${primaryCash.accountLabel}${primaryCash.direction === 'in' ? '到账' : '付款'}` : ''}` : tx.kind === 'refund' ? '冲减支出' : tx.kind === 'transfer' ? '账户转账' : tx.kind === 'investment' ? '持仓变动' : tx.category
     const primaryIndex = tx.amounts?.findIndex(amount => amount.amount === tx.amount && amount.currency === tx.currency && amount.direction === tx.direction && amount.kind === tx.kind && amount.basis === tx.amountBasis) ?? -1
-    const otherAmounts = tx.amounts?.filter((_, index) => index !== primaryIndex) ?? []
+    const otherAmounts = tx.amounts?.filter((_, index) => primaryCash || index !== primaryIndex) ?? []
+    const amountLabel = (amount: ActivityAmount) => settlement && amount.kind === 'income'
+      ? amount.direction === 'out' ? '已实现亏损' : '已实现盈利'
+      : settlement && amount.kind === 'investment' && amount.basis === 'weight'
+      ? settlement.action === 'sell' ? '卖出成本' : settlement.action === 'buy' ? '买入成本' : '持仓成本'
+      : kindLabels[amount.kind]
     const usesWeight = tx.amountBasis === 'weight' || otherAmounts.some(amount => amount.basis === 'weight')
-    return <details className={`transaction-row transaction-${tx.kind} direction-${tx.direction}`} key={`${tx.id}:${tx.currency}`}>
+    return <details className={`transaction-row transaction-${displayKind} direction-${direction}`} key={`${tx.id}:${tx.currency}`}>
       <summary>
-        <span className={`transaction-icon ${tx.kind}-icon`}><CategoryIcon name={tx.category} kind={tx.kind} size={19} /></span>
-        <span className="transaction-info"><span className="transaction-title">{tx.narration.trim() || '无描述交易'}<span className="transaction-kind">{kindLabels[tx.kind]}</span>{tx.flag === '!' && <CircleAlert size={13} className="pending-indicator" aria-label="待核对" />}</span><span className="transaction-subtitle">{shortDate(tx.date)}<span className="mini-dot" />{label}{tx.amountBasis === 'weight' ? ' · 记账权重' : ''}</span></span>
-        <span className={`transaction-amount ${tx.direction === 'in' ? 'income-tone' : tx.direction === 'out' ? 'expense-tone' : ''}`}>{!hidden && sign}<Money amount={tx.amountUnavailable ? null : tx.amount} currency={tx.currency} />{tx.currency !== 'CNY' && <small>{tx.currency}</small>}{tx.amountUnavailable && <small>金额待确认</small>}{otherAmounts.map((amount, index) => <small key={index}>{kindLabels[amount.kind]} {hidden ? '••••' : `${amount.direction === 'in' ? '+' : amount.direction === 'out' ? '−' : ''}${amount.amount}`}{amount.currency !== 'CNY' && ` ${amount.currency}`}{amount.basis === 'weight' ? ' · 权重' : ''}</small>)}</span>
+        <span className={`transaction-icon ${displayKind}-icon`}><CategoryIcon name={settlement ? tradeLabel : tx.category} kind={displayKind} size={19} /></span>
+        <span className="transaction-info"><span className="transaction-title">{tx.narration.trim() || '无描述交易'}<span className="transaction-kind">{kindLabels[displayKind]}</span>{tx.flag === '!' && <CircleAlert size={13} className="pending-indicator" aria-label="待核对" />}</span><span className="transaction-subtitle">{shortDate(tx.date)}<span className="mini-dot" />{label}{!primaryCash && tx.amountBasis === 'weight' ? ' · 记账权重' : ''}</span></span>
+        <span className={`transaction-amount ${direction === 'in' ? 'income-tone' : direction === 'out' ? 'expense-tone' : ''}`}>
+          {!hidden && sign}<Money amount={tx.amountUnavailable ? null : primaryCash?.amount ?? tx.amount} currency={tx.currency} />
+          {tx.currency !== 'CNY' && <small>{tx.currency}</small>}{tx.amountUnavailable && <small>金额待确认</small>}
+          {settlement && !primaryCash && primaryIndex >= 0 && <small>{amountLabel(tx.amounts![primaryIndex])}</small>}
+          {cashFlows.filter(flow => flow !== primaryCash).map(flow => <small key={`${flow.account}:${flow.currency}`}>{flow.accountLabel}{flow.direction === 'in' ? '到账' : '付款'} {hidden ? '••••' : `${flow.direction === 'in' ? '+' : '−'}${formatAmount(flow.amount)}`}{flow.currency !== 'CNY' && ` ${flow.currency}`}</small>)}
+          {otherAmounts.map((amount, index) => <small key={index}>{amountLabel(amount)} {hidden ? '••••' : `${amount.direction === 'in' ? '+' : amount.direction === 'out' ? '−' : ''}${formatAmount(amount.amount)}`}{amount.currency !== 'CNY' && ` ${amount.currency}`}{amount.basis === 'weight' && !settlement ? ' · 权重' : ''}</small>)}
+        </span>
         <ChevronDown size={15} className="transaction-chevron" />
       </summary>
       <div className="transaction-details">

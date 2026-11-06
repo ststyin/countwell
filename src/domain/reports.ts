@@ -293,6 +293,24 @@ export function getCreditCardSpendingTransactions(ledger: Ledger, query: Transac
   return isCreditCard(ledger, query.account) ? getPaymentAccountSpendingTransactions(ledger, query) : [];
 }
 
+function investmentSettlement(ledger: Ledger, transaction: LedgerTransaction, D: typeof Decimal): Activity['investmentSettlement'] {
+  const booked = transaction.postings.filter(posting => posting.cost && ['asset', 'liability'].includes(accountKind(ledger, posting.account) ?? '') && !new D(posting.amount).isZero());
+  if (!booked.length) return undefined;
+  const action = booked.every(posting => new D(posting.amount).isNegative()) ? 'sell'
+    : booked.every(posting => new D(posting.amount).isPositive()) ? 'buy' : 'exchange';
+  const cash = new Map<string, { account: string; currency: string; amount: Decimal }>();
+  for (const posting of transaction.postings) {
+    if (posting.cost || posting.price || !ledger.accounts.some(account => account.name === posting.account && account.kind === 'asset' && account.role === 'cash')) continue;
+    const key = JSON.stringify([posting.account, posting.currency]);
+    const previous = cash.get(key);
+    cash.set(key, { account: posting.account, currency: posting.currency, amount: (previous?.amount ?? new D(0)).plus(posting.amount) });
+  }
+  return { action, cashFlows: [...cash.values()].filter(row => !row.amount.isZero()).map(row => ({
+    account: row.account, accountLabel: label(ledger, row.account), amount: text(row.amount.abs()), currency: row.currency,
+    direction: row.amount.isNegative() ? 'out' : 'in',
+  })) };
+}
+
 export function getTransactions(ledger: Ledger, query: TransactionQuery): Activity[] {
   if (query.kind === 'expense' && query.account && isCreditCard(ledger, query.account)) {
     return getPaymentAccountSpendingTransactions(ledger, { ...query, account: query.account }).filter(row => row.kind === 'expense');
@@ -305,7 +323,8 @@ export function getTransactions(ledger: Ledger, query: TransactionQuery): Activi
     .filter(({ transaction, amounts }) => (!query.currency || amounts.some(amount => amount.currency === query.currency))
       && (!query.kind || query.kind === 'all' || amounts.some(amount => amount.kind === query.kind && (!query.currency || amount.currency === query.currency)))
       && (!query.account || query.account === 'all' || transaction.postings.some(posting => posting.account === query.account)))
-    .map(({ transaction, amounts }) => activity(ledger, transaction, amounts, query.currency, query.kind === 'all' ? undefined : query.kind))
+    .map(({ transaction, amounts }) => ({ ...activity(ledger, transaction, amounts, query.currency, query.kind === 'all' ? undefined : query.kind),
+      investmentSettlement: investmentSettlement(ledger, transaction, D) }))
     .filter(item => !search || `${item.payee}\n${item.narration}\n${item.category}\n${item.accountLabel}\n${item.postings.map(posting => label(ledger, posting.account)).join('\n')}`.toLowerCase().includes(search))
     .reverse();
 }

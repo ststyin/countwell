@@ -96,6 +96,11 @@ export interface Activity extends LedgerTransaction {
   amountBasis?: 'units' | 'weight';
   /** A transaction can be shown even when its card-specific amount is ambiguous. */
   amountUnavailable?: boolean;
+  /** Actual cash postings for a booked investment trade, separate from its P&L. */
+  investmentSettlement?: {
+    action: 'buy' | 'sell' | 'exchange';
+    cashFlows: { account: string; accountLabel: string; amount: string; currency: string; direction: 'in' | 'out' }[];
+  };
 }
 
 export interface PaymentAccountSpending {
