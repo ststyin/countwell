@@ -171,13 +171,9 @@ def main(request):
                 if posting.price is not None:
                     value["price"] = {"amount": format(posting.price.number, "f"), "currency": posting.price.currency}
                 postings.append(value)
-            transaction = {"id": f"tx-{index}", "date": item.date.isoformat(), "payee": item.payee or "",
-                           "narration": item.narration or "", "flag": item.flag, "tags": sorted(item.tags),
-                           "links": sorted(item.links), "postings": postings}
-            investment_account = item.meta.get("countwell_investment")
-            if isinstance(investment_account, str) and investment_account:
-                transaction["investmentAccount"] = investment_account
-            transactions.append(transaction)
+            transactions.append({"id": f"tx-{index}", "date": item.date.isoformat(), "payee": item.payee or "",
+                                 "narration": item.narration or "", "flag": item.flag, "tags": sorted(item.tags),
+                                 "links": sorted(item.links), "postings": postings})
 
     # A common directory preserves nested/sibling include paths in the file view
     # without serializing absolute host filesystem locations.

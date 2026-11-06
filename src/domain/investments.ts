@@ -1,82 +1,30 @@
 import Decimal from 'decimal.js';
 import type { AccountReport, InvestmentPosition, Ledger, LedgerTransaction } from './types';
 import { reportPeriod } from './period';
-import { accountKind, arithmetic, costUnits, label, text } from './report-values';
+import { accountKind, arithmetic, costUnits, text } from './report-values';
 
 const holdingKey = (account: string, commodity: string) => JSON.stringify([account, commodity]);
 function feeAccount(name: string) {
   const parts = name.replace(/([a-z0-9])([A-Z])/g, '$1:$2').split(/[:_-]/);
   return parts.some(part => /^(fees?|commissions?|tax(?:es)?)$/i.test(part) || /(?:手续费|佣金|税)$/.test(part));
 }
-const dividendAccount = (name: string) => name.split(':').some(part => /^(dividends?|分红|股息)$/i.test(part));
 
-type HoldingJournal = {
-  account: string;
-  commodity: string;
-  units: Decimal;
-  costCurrencies: Set<string>;
-  firstDate: string;
-  transactions: LedgerTransaction[];
-};
-
-function holdingJournals(ledger: Ledger, events: LedgerTransaction[], goods: Set<string>, D: typeof Decimal) {
-  const journals = new Map<string, HoldingJournal>();
+function holdingTransactions(ledger: Ledger, events: LedgerTransaction[], goods: Set<string>, D: typeof Decimal) {
+  const transactions = new Map<string, LedgerTransaction[]>();
   for (const transaction of events) {
     const seen = new Set<string>();
     for (const posting of transaction.postings) {
       if (!goods.has(posting.currency) || !['asset', 'liability'].includes(accountKind(ledger, posting.account) ?? '')) continue;
-      const units = new D(posting.amount);
-      if (units.isZero()) continue;
+      if (new D(posting.amount).isZero()) continue;
       const key = holdingKey(posting.account, posting.currency);
-      let journal = journals.get(key);
-      if (!journal) {
-        journal = { account: posting.account, commodity: posting.currency, units: new D(0), costCurrencies: new Set(), firstDate: transaction.date, transactions: [] };
-        journals.set(key, journal);
-      }
-      journal.units = journal.units.plus(units);
-      if (posting.cost) journal.costCurrencies.add(posting.cost.currency);
-      if (transaction.date < journal.firstDate) journal.firstDate = transaction.date;
-      if (!seen.has(key)) journal.transactions.push(transaction);
+      if (seen.has(key)) continue;
       seen.add(key);
+      const matching = transactions.get(key);
+      if (matching) matching.push(transaction);
+      else transactions.set(key, [transaction]);
     }
   }
-  return journals;
-}
-
-function cashDividends(ledger: Ledger, events: LedgerTransaction[], funds: HoldingJournal[], goods: Set<string>, D: typeof Decimal) {
-  const amounts = new Map<string, Decimal>();
-  let unallocated = 0;
-  const commodities = new Set(funds.map(fund => fund.commodity.toLowerCase()));
-  for (const transaction of events) {
-    const income = transaction.postings.filter(posting => dividendAccount(posting.account) && accountKind(ledger, posting.account) === 'income');
-    if (!income.length) continue;
-    const currency = income[0].currency;
-    if (transaction.postings.some(posting => posting.currency !== currency || posting.cost || posting.price || goods.has(posting.currency))) {
-      unallocated++;
-      continue;
-    }
-    const named = income.map(posting => posting.account.split(':').slice(1).map(part => part.toLowerCase()).filter(part => commodities.has(part)));
-    const candidates = funds.filter(fund => fund.firstDate <= transaction.date
-      && (!transaction.investmentAccount || fund.account === transaction.investmentAccount)
-      && named.every(parts => parts.length ? parts.every(part => part === fund.commodity.toLowerCase()) : Boolean(transaction.investmentAccount)));
-    const fund = candidates.length === 1 ? candidates[0] : undefined;
-    const cash = transaction.postings.filter(posting => accountKind(ledger, posting.account) === 'asset');
-    const supported = transaction.postings.every(posting => income.includes(posting) || cash.includes(posting)
-      || (accountKind(ledger, posting.account) === 'expense' && feeAccount(posting.account)));
-    if (!fund || fund.costCurrencies.size !== 1 || !fund.costCurrencies.has(currency) || !cash.length || !supported) {
-      unallocated++;
-      continue;
-    }
-    const received = cash.reduce((total, posting) => total.plus(posting.amount), new D(0));
-    const gross = income.reduce((total, posting) => total.minus(posting.amount), new D(0));
-    if ((gross.gt(0) && (received.lt(0) || received.gt(gross))) || (gross.lt(0) && (received.gt(0) || received.lt(gross))) || (gross.isZero() && !received.isZero())) {
-      unallocated++;
-      continue;
-    }
-    const key = holdingKey(fund.account, fund.commodity);
-    amounts.set(key, (amounts.get(key) ?? new D(0)).plus(received));
-  }
-  return { amounts, unallocated };
+  return transactions;
 }
 
 /** Identify monetary balances held in investment accounts without treating receivables as investments. */
@@ -92,12 +40,12 @@ export function summarizeInvestments(ledger: Ledger, report: AccountReport, curr
   const end = report.asOf ?? (report.month ? reportPeriod(report.month).end : '9999-12-31');
   const goods = costUnits(ledger, end);
   const events = ledger.transactions.filter(transaction => transaction.date <= end);
-  const journals = holdingJournals(ledger, events, goods, D);
+  const transactions = holdingTransactions(ledger, events, goods, D);
   // Allocate settlement only when one identifiable holding is involved. A transfer,
   // currency conversion, or combined trade must not invent a cash allocation.
   const cashFlows = (account: string, commodity: string, unit: string) => {
     let invested = new D(0), withdrawn = new D(0), seen = false;
-    for (const transaction of journals.get(holdingKey(account, commodity))?.transactions ?? []) {
+    for (const transaction of transactions.get(holdingKey(account, commodity)) ?? []) {
       const trades = transaction.postings.filter(posting => posting.account === account && posting.currency === commodity && !new D(posting.amount).isZero());
       if (!trades.length) continue;
       seen = true;
@@ -179,51 +127,5 @@ export function summarizeInvestments(ledger: Ledger, report: AccountReport, curr
       cumulativeReturnRate: cumulativePnl !== null && invested !== null && new D(invested).gt(0) ? text(new D(cumulativePnl).div(invested).times(100)) : null,
       returnRate: unrealizedPnl !== null && cost !== null && new D(cost).gt(0) ? text(new D(unrealizedPnl).div(cost).times(100)) : null };
   });
-  const funds = [...journals.values()].filter(journal => journal.costCurrencies.size > 0 && accountKind(ledger, journal.account) === 'asset');
-  const dividend = cashDividends(ledger, events, funds, goods, D);
-  const historyPositions = new Map<string, InvestmentPosition[]>();
-  for (const position of report.positions) {
-    const key = holdingKey(position.account, position.commodity);
-    const positions = historyPositions.get(key);
-    if (positions) positions.push(position);
-    else historyPositions.set(key, [position]);
-  }
-  const history = funds.map(fund => {
-    const key = holdingKey(fund.account, fund.commodity);
-    const unit = fund.costCurrencies.size === 1 ? [...fund.costCurrencies][0] : '';
-    const positions = historyPositions.get(key) ?? [];
-    const closed = fund.units.isZero() && positions.length === 0;
-    const lots = positions.filter(position => position.currency === unit);
-    const completeLots = lots.length > 0 && fund.units.eq(sum(lots.map(lot => lot.units))) && lots.every(lot => new D(lot.units).gt(0));
-    const values = completeLots && lots.every(lot => lot.marketValue !== null);
-    const cost = completeLots && lots.every(lot => lot.costCurrency === unit && lot.cost !== null);
-    const marketValue = closed ? new D(0) : values ? sum(lots.map(lot => lot.marketValue!)) : null;
-    const remainingCost = closed ? new D(0) : cost ? sum(lots.map(lot => lot.cost!)) : null;
-    const flows = unit && (closed || fund.units.gt(0)) ? cashFlows(fund.account, fund.commodity, unit) : null;
-    const dividends = unit ? dividend.amounts.get(key) ?? new D(0) : null;
-    const realizedPnl = remainingCost && flows ? remainingCost.plus(flows.withdrawn).minus(flows.invested) : null;
-    const cumulativePnl = marketValue && flows && dividends ? marketValue.plus(flows.withdrawn).plus(dividends).minus(flows.invested) : null;
-    return {
-      account: fund.account, accountLabel: label(ledger, fund.account), commodity: fund.commodity, currency: unit, closed,
-      marketValue: marketValue === null ? null : text(marketValue),
-      invested: flows ? text(flows.invested) : null,
-      withdrawn: flows ? text(flows.withdrawn) : null,
-      dividends: dividends === null ? null : text(dividends),
-      realizedPnl: realizedPnl === null ? null : text(realizedPnl),
-      cumulativePnl: cumulativePnl === null ? null : text(cumulativePnl),
-    };
-  }).sort((a, b) => Number(a.closed) - Number(b.closed) || a.commodity.localeCompare(b.commodity) || a.account.localeCompare(b.account));
-  const historyTotals = [...new Set(history.map(fund => fund.currency).filter(Boolean))].sort().map(unit => {
-    const items = history.filter(fund => fund.currency === unit);
-    const total = (field: 'marketValue' | 'invested' | 'withdrawn' | 'dividends' | 'realizedPnl' | 'cumulativePnl') => {
-      const values = items.map(fund => fund[field]);
-      return values.every(value => value !== null) ? text(sum(values)) : null;
-    };
-    return {
-      currency: unit, count: items.length,
-      marketValue: total('marketValue'), invested: total('invested'), withdrawn: total('withdrawn'), dividends: total('dividends'),
-      realizedPnl: total('realizedPnl'), cumulativePnl: total('cumulativePnl'),
-    };
-  });
-  return { monetaryAssets, holdings, totals, history, historyTotals, unallocatedDividends: dividend.unallocated };
+  return { monetaryAssets, holdings, totals };
 }

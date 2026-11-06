@@ -65,7 +65,7 @@ describe('investment holding presentation', () => {
     }
     const html = render(false, source)
     expect(html).toContain('示例科技基金C 123456')
-    expect(html).toContain('报价日期 2026-11-01')
+    expect(html.match(/<summary[^>]*>(.*?)<\/summary>/)?.[1]).toContain('2026-11-01</time>')
     expect(html).toContain('8.9876 份')
     expect(html).toContain('1.2346')
     expect(html.match(/class="holding-lot"/g)).toHaveLength(5)
@@ -79,7 +79,9 @@ describe('investment holding presentation', () => {
     const source: Ledger = { ...ledger, accounts: [...accounts, account], transactions: [...ledger.transactions, transaction('2026-10-01', 'closed', { account: account.name, currency: 'CNY', amount: '0' })] }
     const html = render(false, source)
     expect(html).toContain('零余额与未持仓账户')
-    expect(html).toContain('余额为零 · 查看历史交易')
+    const zeroAccounts = html.slice(html.indexOf('class="investment-history"'))
+    expect(zeroAccounts).toContain('Closed')
+    expect(zeroAccounts).toContain('0.00')
     expect(html.indexOf('holding-item')).toBeLessThan(html.indexOf('investment-history'))
   })
 
