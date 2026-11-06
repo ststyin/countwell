@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { Check, Cloud, FolderOpen, Github, LoaderCircle, LogOut, RefreshCw, Unplug } from 'lucide-react'
 import type { ConnectRequest, SourceConfig } from '../domain/source-types'
 import type { LedgerSourceController } from '../hooks/useLedgerSource'
-import { cloudMode } from '../lib/runtime'
+import { appRevision, cloudMode } from '../lib/runtime'
 import { SourceClientError, sourceRequest } from '../lib/source-client'
 
 export default function SourceSettings({ controller }: { controller: LedgerSourceController }) {
@@ -30,11 +30,13 @@ function CloudSourceSettings({ controller }: { controller: LedgerSourceControlle
     <div className="section-heading"><h2>账本来源</h2><Github size={21} className="settings-heading-icon" /></div>
     {status?.connected ? <dl className="cloud-source-details">
       <div><dt>GitHub</dt><dd>{status.source?.repository ? <a href={`https://github.com/${status.source.repository}`} target="_blank" rel="noreferrer">{status.source.repository}</a> : '已连接'}</dd></div>
-      {status.loadedAt && <div><dt>同步</dt><dd><time dateTime={status.loadedAt}>{new Date(status.loadedAt).toLocaleString('zh-CN')}</time></dd></div>}
+      <div><dt>应用版本</dt><dd>{appRevision ? <code title={appRevision}>{appRevision.slice(0, 12)}</code> : '未记录'}</dd></div>
+      <div><dt>账本版本</dt><dd>{status.revision ? <code title={status.revision}>{status.revision.slice(0, 12)}</code> : '未记录'}</dd></div>
+      <div><dt>同步时间</dt><dd>{status.loadedAt ? <time dateTime={status.loadedAt}>{new Date(status.loadedAt).toLocaleString('zh-CN')}</time> : '未记录'}</dd></div>
     </dl> : <p className="cloud-source-pending" role="status">{controller.initialLoading ? '正在读取账本…' : '账本暂不可用'}</p>}
     <div className="setting-actions"><button className="button" disabled={busy || loggingOut} onClick={() => void reload()}>{busy ? <LoaderCircle size={16} className="spin" /> : <RefreshCw size={16} />}刷新账本</button><button className="button" disabled={loggingOut} onClick={() => void logout()}><LogOut size={16} />{loggingOut ? '正在退出…' : '退出登录'}</button></div>
     {(error || logoutError) && <div className="source-error" role="alert">{logoutError || error?.message}</div>}
-    {status?.connected && <details className="disclosure"><summary>同步详情</summary><div className="disclosure-content"><dl className="cloud-source-details"><div><dt>入口</dt><dd>{status.source?.entryPath}</dd></div><div><dt>账本</dt><dd>{status.fileCount} 个文件 · {status.transactionCount} 笔交易</dd></div>{status.revision && <div><dt>提交</dt><dd>{status.revision.slice(0, 12)}</dd></div>}</dl></div></details>}
+    {status?.connected && <details className="disclosure"><summary>同步详情</summary><div className="disclosure-content"><dl className="cloud-source-details"><div><dt>入口</dt><dd>{status.source?.entryPath}</dd></div><div><dt>账本</dt><dd>{status.fileCount} 个文件 · {status.transactionCount} 笔交易</dd></div></dl></div></details>}
   </section>
 }
 

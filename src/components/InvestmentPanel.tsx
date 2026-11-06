@@ -36,7 +36,7 @@ function QuoteDates({ dates, today }: { dates: string[]; today: number }) {
   </small>
 }
 
-function Gain({ amount, currency }: { amount: string | null; currency: string }) {
+export function Gain({ amount, currency }: { amount: string | null; currency: string }) {
   const { hidden } = useContext(DisplayContext)
   const rounded = amount === null ? null : new Decimal(amount).toDecimalPlaces(2)
   const tone = hidden || rounded === null || rounded.isZero() ? '' : rounded.gt(0) ? 'income-tone' : 'expense-tone'

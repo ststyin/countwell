@@ -1,10 +1,11 @@
 import Decimal from 'decimal.js'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Building2, ChevronRight, CreditCard, Landmark, Wallet } from 'lucide-react'
 import { getAccounts, isInvestmentAccount, summarizeInvestments } from '../domain'
 import type { Ledger, LedgerAccount } from '../domain/types'
 import { EmptyState, Money, SectionTitle } from '../components/ui'
 import InvestmentPanel from '../components/InvestmentPanel'
+import InvestmentHistoryPanel from '../components/InvestmentHistoryPanel'
 import { accountLabels } from '../lib/accountLabels'
 
 function EmptyAccountRows({ accounts, labels, onAccount }: { accounts: LedgerAccount[]; labels: Map<string, string>; onAccount: (name: string) => void }) {
@@ -18,8 +19,8 @@ export default function AccountsPage({ ledger, currency, onAccount, section }: {
     if (section) (section === 'cash' ? cashRef : debtRef).current?.scrollIntoView({ block: 'start' })
   }, [section])
   const labels = accountLabels(ledger.accounts)
-  const report = getAccounts(ledger, undefined, currency)
-  const investments = summarizeInvestments(ledger, report, currency)
+  const report = useMemo(() => getAccounts(ledger, undefined, currency), [ledger, currency])
+  const investments = useMemo(() => summarizeInvestments(ledger, report, currency), [ledger, report, currency])
   const investmentMonetaryKeys = new Set(investments.monetaryAssets.map(account => `${account.name}\0${account.currency}`))
   const cash = report.accounts.filter(account => account.kind === 'asset' && account.role === 'cash')
   const otherAssets = report.accounts.filter(account => account.kind === 'asset' && account.role === 'other' && !investmentMonetaryKeys.has(`${account.name}\0${account.currency}`))
@@ -38,5 +39,6 @@ export default function AccountsPage({ ledger, currency, onAccount, section }: {
       <section ref={debtRef} className="panel liability-panel"><SectionTitle title="待还款" />{debts.length || emptyDebt.length ? <div className="account-list">{debts.map(account => <button className="account-row" key={`${account.name}:${account.currency}`} onClick={() => onAccount(account.name)}><span className="account-avatar debt-avatar"><CreditCard size={21} strokeWidth={1.6} /></span><span className="account-info"><strong>{labels.get(account.name) ?? account.label}</strong><small>{new Decimal(account.balance).gt(0) ? '溢缴款' : '待还款'}</small></span><span className="account-balance"><Money amount={new Decimal(account.balance).abs().toFixed()} currency={account.currency} />{account.currency !== 'CNY' && <small>{account.currency}</small>}</span><ChevronRight size={15} className="account-row-arrow" /></button>)}<EmptyAccountRows accounts={emptyDebt} labels={labels} onAccount={onAccount} /></div> : <EmptyState title="暂无待还款" />}</section>
     </div>
     <InvestmentPanel summary={investments} ledger={ledger} currency={currency} emptyAccounts={emptyInvestment} onAccount={onAccount} />
+    <InvestmentHistoryPanel summary={investments} ledger={ledger} onAccount={onAccount} />
   </>
 }

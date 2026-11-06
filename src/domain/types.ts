@@ -45,6 +45,7 @@ export interface LedgerTransaction {
   flag: string;
   tags: string[];
   links?: string[];
+  investmentAccount?: string;
   postings: Posting[];
 }
 
