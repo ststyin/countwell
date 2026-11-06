@@ -100,6 +100,8 @@ export interface Activity extends LedgerTransaction {
   investmentSettlement?: {
     action: 'buy' | 'sell' | 'exchange';
     cashFlows: { account: string; accountLabel: string; amount: string; currency: string; direction: 'in' | 'out' }[];
+    trades: { account: string; commodity: string; units: string; direction: 'buy' | 'sell'; price?: { amount: string; currency: string } }[];
+    fees: { amount: string; currency: string }[];
   };
 }
 

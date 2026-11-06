@@ -21,41 +21,48 @@ const ledger: Ledger = {
   ] }],
 }
 
+function investmentRows(snapshot = ledger) {
+  return renderToStaticMarkup(<TransactionList transactions={getTransactions(snapshot, { kind: 'investment' })} />)
+}
+
 function summary(snapshot = ledger) {
-  const html = renderToStaticMarkup(<TransactionList transactions={getTransactions(snapshot, { kind: 'investment' })} />)
+  const html = investmentRows(snapshot)
   return html.slice(html.indexOf('<summary>'), html.indexOf('</summary>'))
 }
 
 describe('investment transaction presentation', () => {
   it('formats monetary summaries to two decimal places', () => {
     expect(summary()).not.toMatch(/\d+\.\d{3,}/)
-    expect(summary()).toContain('4,900.00')
+    expect(summary()).toContain('4,091.48')
   })
   it('shows the actual receiving account and cash inflow independently of a realized loss', () => {
     expect(summary()).toContain('支付宝')
     expect(summary()).toContain('到账')
     expect(summary()).toContain('4,091.48')
-    expect(summary()).toContain('已实现亏损')
     expect(summary()).not.toContain('收入冲回')
     expect(summary()).toContain('transaction-amount income-tone">+<span class="money ">4,091.48')
-    expect(summary()).toContain('已实现亏损 −808.52')
+    expect(summary()).not.toMatch(/已实现|卖出成本|808\.52|4,900\.00/)
     expect(getOverview(ledger, '2026-11')).toMatchObject({ income: '0', surplus: '0', incomeCategories: [] })
     expect(getTransactions(ledger, { kind: 'income', account: 'Assets:Alipay' })).toEqual([])
     expect(getAccounts(ledger).cash).toBe('4091.48')
   })
-  it('uses the net cash posting after fees, retaining gross gains and cost separately', () => {
+  it('shows net cash in the row and combines booked lots in the expanded trade details', () => {
     const snapshot: Ledger = { ...ledger, transactions: [{ ...ledger.transactions[0], postings: [
-      { account: 'Assets:Fund', amount: '-10', currency: 'FUND', cost: { amount: '355.3185810530907134977576643957662', currency: 'CNY' } },
+      { account: 'Assets:Fund', amount: '-4.1234', currency: 'FUND', cost: { amount: '355.3185810530907134977576643957662', currency: 'CNY' }, price: { amount: '403.55', currency: 'CNY' } },
+      { account: 'Assets:Fund', amount: '-5.8766', currency: 'FUND', cost: { amount: '355.3185810530907134977576643957662', currency: 'CNY' }, price: { amount: '403.55', currency: 'CNY' } },
       { account: 'Assets:Alipay', amount: '4015.60', currency: 'CNY' },
       { account: 'Expenses:Investment:Fees', amount: '19.90', currency: 'CNY' },
       { account: 'Income:CapitalGains', amount: '-482.314189469092865022423356042338', currency: 'CNY' },
     ] }] }
-    const html = summary(snapshot)
-    expect(html).toContain('transaction-amount income-tone">+<span class="money ">4,015.60')
-    expect(html).toContain('已实现盈利 +482.31')
-    expect(html).toContain('支出 −19.90')
-    expect(html).toContain('卖出成本 3,553.19')
-    expect(html).not.toMatch(/\d+\.\d{3,}/)
+    expect(summary(snapshot)).toContain('transaction-amount income-tone">+<span class="money ">4,015.60')
+    expect(summary(snapshot)).not.toMatch(/19\.90|482\.31|3,553\.19/)
+    const html = investmentRows(snapshot)
+    const details = html.slice(html.indexOf('<dl'), html.indexOf('<details class="transaction-ledger-details"'))
+    expect(details).toContain('<dt>份额</dt><dd><span class="money ">10.0000')
+    expect(details).toContain('<dt>单价</dt><dd><span class="money ">403.5500')
+    expect(details).toContain('<dt>手续费</dt><dd><span class="money ">19.90')
+    expect(details).not.toMatch(/4\.1234|5\.8766|482\.31|记账权重/)
+    expect(html).toContain('<details class="transaction-ledger-details"><summary>账本分录')
     expect(getOverview(snapshot, '2026-11').expense).toBe('19.9')
   })
   it('keeps sale gains and losses out of the income drilldown while reporting actual fees', () => {
@@ -85,7 +92,7 @@ describe('investment transaction presentation', () => {
     expect(getReceivingAccountIncomeTransactions(snapshot, query).map(row => row.id)).toEqual(['salary'])
     const expenseDetails = renderToStaticMarkup(<TransactionList transactions={getPaymentAccountSpendingTransactions(snapshot, query)} />)
     expect(expenseDetails).toContain('支付宝到账')
-    expect(expenseDetails).toContain('支出 −20.00')
+    expect(expenseDetails).toContain('<dt>手续费</dt><dd><span class="money ">20.00')
   })
   it('preserves exact postings in the details and hides all amounts in privacy mode', () => {
     const rows = getTransactions(ledger, { kind: 'investment' })
@@ -101,11 +108,12 @@ describe('investment transaction presentation', () => {
         { account: 'Assets:Bank', amount: '2091.48', currency: 'CNY' },
         ledger.transactions[0].postings[2],
       ] }] }
-    expect(summary(snapshot)).toContain('支付宝到账 +2,000.00')
-    expect(summary(snapshot)).toContain('银行卡到账 +2,091.48')
-    expect(summary(snapshot)).not.toContain('4,091.48')
+    expect(summary(snapshot)).toContain('分笔收付')
+    expect(summary(snapshot)).not.toMatch(/2,000\.00|2,091\.48|4,091\.48/)
+    expect(investmentRows(snapshot)).toContain('<dt>支付宝到账</dt><dd>+<span class="money ">2,000.00')
+    expect(investmentRows(snapshot)).toContain('<dt>银行卡到账</dt><dd>+<span class="money ">2,091.48')
     snapshot.transactions[0].postings[2].currency = 'USD'
-    expect(summary(snapshot)).toContain('银行卡到账 +2,091.48 USD')
+    expect(investmentRows(snapshot)).toContain('<dt>银行卡到账</dt><dd>+<span class="money ">2,091.48</span> USD')
   })
   it('labels buys as payments and does not manufacture cash for an in-kind movement', () => {
     const snapshot: Ledger = { ...ledger, transactions: [{ ...ledger.transactions[0], postings: [
@@ -113,7 +121,8 @@ describe('investment transaction presentation', () => {
       { account: 'Assets:Alipay', amount: '-500', currency: 'CNY' },
     ] }] }
     const html = renderToStaticMarkup(<TransactionList transactions={getTransactions(snapshot, {})} />)
-    expect(html).toContain('投资买入 · 支付宝付款')
+    expect(html).toContain('买入')
+    expect(html).toContain('支付宝付款')
     expect(html).toContain('transaction-amount expense-tone">−<span class="money ">500.00')
     snapshot.transactions[0].postings[1] = { account: 'Equity:Opening', amount: '-500', currency: 'CNY' }
     const inKind = renderToStaticMarkup(<TransactionList transactions={getTransactions(snapshot, {})} />)

@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js';
 import type { AccountBalance, AccountReport, Activity, ActivityAmount, BillingCycle, PaymentAccountSpending, InvestmentPosition, Ledger, LedgerTransaction, Overview, TransactionQuery, TransactionKind } from './types';
 import { reportPeriod } from './period';
-import { accountKind, arithmetic, costUnits, isInvestmentGainAccount, label, text } from './report-values';
+import { accountKind, arithmetic, costUnits, isInvestmentFeeAccount, isInvestmentGainAccount, label, text } from './report-values';
 export { monthBounds } from './period';
 export { isInvestmentAccount, summarizeInvestments } from './investments';
 
@@ -322,14 +322,35 @@ function investmentSettlement(ledger: Ledger, transaction: LedgerTransaction, D:
   if (!booked.length) return undefined;
   const action = booked.every(posting => new D(posting.amount).isNegative()) ? 'sell'
     : booked.every(posting => new D(posting.amount).isPositive()) ? 'buy' : 'exchange';
+  const tradeGroups = new Map<string, typeof booked>();
+  for (const posting of booked) {
+    const key = JSON.stringify([posting.account, posting.currency, new D(posting.amount).isNegative()]);
+    const group = tradeGroups.get(key);
+    if (group) group.push(posting);
+    else tradeGroups.set(key, [posting]);
+  }
+  const trades = [...tradeGroups.values()].map(group => {
+    const first = group[0];
+    const price = first.price;
+    const uniformPrice = price && group.every(posting => posting.price?.currency === price.currency && new D(posting.price.amount).eq(price.amount));
+    const units = group.reduce((sum, posting) => sum.plus(posting.amount), new D(0));
+    return { account: first.account, commodity: first.currency, units: text(units.abs()), direction: units.isNegative() ? 'sell' as const : 'buy' as const,
+      price: uniformPrice ? price : undefined };
+  });
   const cash = new Map<string, { account: string; currency: string; amount: Decimal }>();
+  const fees = new Map<string, Decimal>();
   for (const posting of transaction.postings) {
-    if (posting.cost || posting.price || !ledger.accounts.some(account => account.name === posting.account && account.kind === 'asset' && account.role === 'cash')) continue;
+    if (posting.cost || posting.price) continue;
+    if (isInvestmentFeeAccount(posting.account) && accountKind(ledger, posting.account) === 'expense') {
+      fees.set(posting.currency, (fees.get(posting.currency) ?? new D(0)).plus(posting.amount));
+    }
+    if (!ledger.accounts.some(account => account.name === posting.account && account.kind === 'asset' && account.role === 'cash')) continue;
     const key = JSON.stringify([posting.account, posting.currency]);
     const previous = cash.get(key);
     cash.set(key, { account: posting.account, currency: posting.currency, amount: (previous?.amount ?? new D(0)).plus(posting.amount) });
   }
-  return { action, cashFlows: [...cash.values()].filter(row => !row.amount.isZero()).map(row => ({
+  return { action, trades, fees: [...fees].filter(([, amount]) => !amount.isZero()).map(([currency, amount]) => ({ currency, amount: text(amount) })),
+    cashFlows: [...cash.values()].filter(row => !row.amount.isZero()).map(row => ({
     account: row.account, accountLabel: label(ledger, row.account), amount: text(row.amount.abs()), currency: row.currency,
     direction: row.amount.isNegative() ? 'out' : 'in',
   })) };

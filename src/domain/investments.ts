@@ -1,14 +1,9 @@
 import Decimal from 'decimal.js';
 import type { AccountReport, InvestmentPosition, Ledger, LedgerTransaction } from './types';
 import { reportPeriod } from './period';
-import { accountKind, arithmetic, costUnits, isInvestmentGainAccount, text } from './report-values';
+import { accountKind, arithmetic, costUnits, isInvestmentFeeAccount, isInvestmentGainAccount, text } from './report-values';
 
 const holdingKey = (account: string, commodity: string) => JSON.stringify([account, commodity]);
-function feeAccount(name: string) {
-  const parts = name.replace(/([a-z0-9])([A-Z])/g, '$1:$2').split(/[:_-]/);
-  return parts.some(part => /^(fees?|commissions?|tax(?:es)?)$/i.test(part) || /(?:手续费|佣金|税)$/.test(part));
-}
-
 function holdingTransactions(ledger: Ledger, events: LedgerTransaction[], goods: Set<string>, D: typeof Decimal) {
   const transactions = new Map<string, LedgerTransaction[]>();
   for (const transaction of events) {
@@ -61,7 +56,7 @@ export function summarizeInvestments(ledger: Ledger, report: AccountReport, curr
       if (others.some(posting => {
         const kind = accountKind(ledger, posting.account);
         return !kind || (kind === 'income' && (buying || !isInvestmentGainAccount(posting.account)))
-          || (kind === 'expense' && !feeAccount(posting.account));
+          || (kind === 'expense' && !isInvestmentFeeAccount(posting.account));
       })) return null;
       const settlement = sum(settlements.map(posting => posting.amount));
       if ((buying && settlement.gt(0)) || (selling && settlement.lt(0))) return null;

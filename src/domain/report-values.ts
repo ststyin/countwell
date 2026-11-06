@@ -17,6 +17,11 @@ export function isInvestmentGainAccount(name: string): boolean {
   return /(?:^|:)(?:CapitalGains?|Gains?|PnL|Profit|投资收益|投资损益|资本利得)(?::|$)/i.test(name);
 }
 
+export function isInvestmentFeeAccount(name: string): boolean {
+  const parts = name.replace(/([a-z0-9])([A-Z])/g, '$1:$2').split(/[:_-]/);
+  return parts.some(part => /^(fees?|commissions?|tax(?:es)?)$/i.test(part) || /(?:手续费|佣金|税)$/.test(part));
+}
+
 export function arithmetic(ledger: Ledger) {
   const numbers = ledger.transactions.flatMap(transaction => transaction.postings.flatMap(posting => [posting.amount, posting.cost?.amount, posting.price?.amount].filter((value): value is string => value !== undefined))).concat(ledger.prices.map(price => price.amount));
   let integerDigits = 1, scale = 0;

@@ -280,6 +280,13 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .transaction-chevron { color: var(--muted); transition: transform .18s; }
 .transaction-row[open] .transaction-chevron { transform: rotate(180deg); }
 .transaction-details { padding: 2px 0 20px 52px; }
+.investment-trade-details { display: grid; gap: 7px; margin: 0 0 6px; font-size: 12px; }
+.investment-trade-details > div { display: flex; justify-content: space-between; gap: 12px; }
+.investment-trade-details dt { min-width: 0; color: var(--muted); overflow-wrap: anywhere; }
+.investment-trade-details dd { margin: 0; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
+.transaction-ledger-details > summary { display: flex; align-items: center; gap: 5px; width: fit-content; min-height: 28px; color: var(--muted); font-size: 11px; cursor: pointer; list-style: none; }
+.transaction-ledger-details > summary::-webkit-details-marker { display: none; }
+.transaction-ledger-details[open] > summary svg { transform: rotate(180deg); }
 .transaction-detail-header { display: flex; justify-content: space-between; gap: 12px; color: var(--text-secondary); font-size: 11px; margin-bottom: 15px; }
 .transaction-detail-header > span:first-child { min-width: 0; overflow-wrap: anywhere; }
 .transaction-detail-header > span:last-child { flex: 0 0 auto; color: var(--muted); font-size: 11px; }
@@ -291,6 +298,8 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .posting-row + .posting-row { border-top: 1px solid var(--line-soft); }
 .posting-row code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; overflow-wrap: anywhere; }
 .posting-row > span { color: var(--text-secondary); font-size: 11px; text-align: right; white-space: nowrap; }
+.transaction-ledger-details .posting-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.transaction-ledger-details .posting-row > span { white-space: normal; overflow-wrap: anywhere; }
 .posting-row small { color: var(--muted); font-size: 11px; }
 .posting-row > .posting-account { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; white-space: normal; text-align: left; }
 .posting-account > code { display: block; max-width: 100%; overflow-wrap: anywhere; }
