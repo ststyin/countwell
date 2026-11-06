@@ -543,11 +543,11 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .investment-item-name small, .investment-item-value small { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; line-height: 1.6; overflow-wrap: anywhere; }
 .investment-item-value { text-align: right; font-size: 19px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }
 .investment-item-value small { margin: 0 0 4px; }
-.holding-summary-metrics { grid-column: 2 / -2; display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 12px; min-width: 0; padding-top: 4px; }
-.holding-summary-metric { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
-.holding-summary-metric > span:first-child { color: var(--muted); font-size: 11px; }
-.holding-gain, .holding-cost-values { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
-.holding-rate { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.holding-cumulative { grid-column: 2 / -2; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; font-size: 13px; }
+.holding-cumulative > span:first-child { color: var(--muted); font-size: 11px; }
+.holding-gain { display: flex; align-items: baseline; gap: 6px; min-width: 0; max-width: 100%; }
+.holding-gain > :first-child { min-width: 0; overflow-wrap: anywhere; }
+.holding-rate { flex: 0 0 auto; white-space: nowrap; font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .investment-chevron { color: var(--muted); transition: transform .18s; }
 .investment-item[open] > summary .investment-chevron { transform: rotate(180deg); }
 .investment-item-detail { padding: 0 0 16px; }
@@ -555,13 +555,10 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .holding-quote-grid > div { display: flex; flex-direction: column; gap: 7px; min-width: 0; overflow-wrap: anywhere; }
 .holding-quote-grid span { font-size: 11px; color: var(--muted); }
 .holding-quote-grid strong, .holding-quote-grid strong .money { font-weight: 450; font-size: 14px; color: var(--text); }
-.holding-cash-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding-top: 4px; }
-.holding-cash-grid > div { display: flex; flex-direction: column; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
-.holding-cash-grid > div > span:first-child { font-size: 11px; color: var(--muted); }
-.holding-cash-grid .money { font-size: 14px; }
-.holding-lots-heading { margin: 22px 0 8px; }
+.holding-lots-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 22px 0 8px; }
 .holding-lots-heading h3, .investment-balances h3 { margin: 0; font-size: 12px; font-weight: 500; }
 .holding-lots-heading h3 span { color: var(--muted); margin-left: 4px; }
+.holding-shares { padding: 3px 8px; border-radius: 999px; background: var(--surface-raised); font-size: 12px; text-align: right; overflow-wrap: anywhere; }
 .holding-lot { padding: 15px 0; border-bottom: 1px solid var(--line-soft); }
 .holding-lot-date { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; overflow-wrap: anywhere; }
 .holding-lot-date strong { font-size: 12px; font-weight: 450; }
@@ -578,7 +575,7 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
 .investment-history > summary svg { margin-left: auto; }
 .investment-history[open] > summary svg { transform: rotate(180deg); }
 @media (max-width: 600px) {
-  .investment-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 12px; padding: 18px 14px; }
+  .investment-overview { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 20px 12px; padding: 18px 14px; }
   .investment-overview-value { grid-column: 1 / -1; }
   .investment-overview .money { font-size: 18px; }
   .investment-overview .investment-overview-value > .money { font-size: 29px; }
@@ -586,12 +583,11 @@ select.currency-picker { appearance: auto; min-height: 42px; min-width: 72px; pa
   .investment-item-summary > .account-avatar { display: none; }
   .investment-item-name strong { font-size: 13px; }
   .investment-item-value { font-size: 17px; }
-  .holding-summary-metrics { grid-column: 1 / -1; gap: 10px; grid-template-columns: 1fr 1fr; }
-  .holding-summary-metric:last-child { grid-column: 1 / -1; flex-direction: row; align-items: baseline; justify-content: space-between; }
-  .holding-quote-grid { padding: 14px; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .holding-quote-grid > div:last-child { grid-column: 1 / -1; }
-  .holding-cash-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .holding-cash-grid > div:last-child { grid-column: 1 / -1; }
+  .holding-cumulative { grid-column: 1 / -1; }
+  .holding-quote-grid { padding: 12px 10px; gap: 8px; }
+}
+@media (max-width: 380px) {
+  .investment-overview { grid-template-columns: minmax(0, 1fr); gap: 16px; }
 }
 .investment-transactions { margin-top: 4px; }
 .account-note { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 5px; color: var(--muted); font-size: 11px; line-height: 1.8; margin-top: 17px; }

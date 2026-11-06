@@ -74,24 +74,21 @@ function HoldingItem({ holding, name, accountLabel, onAccount, today }: { holdin
       <span className="investment-item-name"><strong>{name}</strong><small>{holding.commodity} · {holding.currency || '币种待确认'}</small>{date && <QuoteDates dates={[date]} today={today} />}</span>
       <span className="investment-item-value"><small>{holding.marketValue === null ? '缺少报价' : '持仓市值'}</small><Money amount={holding.marketValue} currency={holding.currency} /></span>
       <ChevronDown size={16} className="investment-chevron" />
-      <span className="holding-summary-metrics">
-        <span className="holding-summary-metric"><span>持有份额</span><span className="money">{shares(holding.units)} 份</span></span>
-        <span className="holding-summary-metric"><span>买入成本</span><span className="holding-cost-values">{holding.costs ? holding.costs.map(cost => <span key={cost.currency}><Money amount={cost.amount} currency={cost.currency} />{cost.currency !== holding.currency && ` ${cost.currency}`}</span>) : <Money amount={null} />}</span></span>
-        <span className="holding-summary-metric"><span>累计盈亏</span><span className="holding-gain"><Gain amount={holding.cumulativePnl} currency={holding.currency} /><Rate value={holding.cumulativeReturnRate} /></span></span>
+      <span className="holding-cumulative">
+        <span>累计盈亏</span>
+        <span className="holding-gain"><Gain amount={holding.cumulativePnl} currency={holding.currency} /><Rate value={holding.cumulativeReturnRate} /></span>
       </span>
     </summary>
     <div className="investment-item-detail">
-      <div className="holding-cash-grid">
-        <div><span>累计投入</span><Money amount={holding.invested} currency={holding.currency} /></div>
-        <div><span>卖出净收回</span><Money amount={holding.withdrawn} currency={holding.currency} /></div>
-        <div><span>净投入</span><Money amount={holding.netInvested} currency={holding.currency} /></div>
-      </div>
       <div className="holding-quote-grid">
-        <div><span>最新账本净值</span><strong><Money amount={quote.status === 'ok' ? quote.price : null} currency={holding.currency} decimals={4} /> {holding.currency}</strong></div>
-        <div><span>平均持仓单价</span><strong><Money amount={holding.averageCost} decimals={4} /> {holding.costs?.length === 1 ? holding.costs[0].currency : ''}</strong></div>
         <div><span>回本参考净值</span><strong><Money amount={holding.breakEvenPrice} currency={holding.currency} decimals={4} /> {holding.currency}</strong></div>
+        <div><span>平均持仓单价</span><strong><Money amount={holding.averageCost} decimals={4} /> {holding.costs?.length === 1 ? holding.costs[0].currency : ''}</strong></div>
+        <div><span>最新净值</span><strong><Money amount={quote.status === 'ok' ? quote.price : null} currency={holding.currency} decimals={4} /> {holding.currency}</strong></div>
       </div>
-      <div className="holding-lots-heading"><h3>买入批次 <span>{holding.lots.length}</span></h3></div>
+      <div className="holding-lots-heading">
+        <h3>买入批次 <span>{holding.lots.length}</span></h3>
+        <span className="money holding-shares">{shares(holding.units)} 份</span>
+      </div>
       <div className="holding-lots">{lots.map((position, index) => {
         const otherCurrency = position.costCurrency && position.costCurrency !== holding.currency ? ` ${position.costCurrency}` : ''
         return <article className="holding-lot" key={index}>
@@ -120,7 +117,7 @@ export default function InvestmentPanel({ summary, ledger, emptyAccounts, onAcco
     {summary.totals.map(total => <div className="investment-overview" key={total.currency}>
       <div className="investment-overview-value"><span>持仓总市值 · {total.currency || '币种待确认'}</span><Money amount={total.marketValue} currency={total.currency} /><small>{total.count} 项持仓{total.marketValue === null ? ' · 报价不完整' : ''}</small><QuoteDates dates={summary.holdings.filter(holding => holding.currency === total.currency).flatMap(holding => quoteDate(holding) ?? [])} today={today} /></div>
       <div><span>在持基金累计投入</span><Money amount={total.invested} currency={total.currency} /></div>
-      <div><span>在持基金累计盈亏</span><Gain amount={total.cumulativePnl} currency={total.currency} /><Rate value={total.cumulativeReturnRate} /></div>
+      <div><span>在持基金累计盈亏</span><span className="holding-gain"><Gain amount={total.cumulativePnl} currency={total.currency} /><Rate value={total.cumulativeReturnRate} /></span></div>
     </div>)}
     <div className="position-list">
       {summary.holdings.map(holding => <HoldingItem key={JSON.stringify([holding.account, holding.commodity, holding.currency])} holding={holding} name={names.get(holding.account) ?? holding.commodity} accountLabel={labels.get(holding.account) ?? holding.account} onAccount={onAccount} today={today} />)}

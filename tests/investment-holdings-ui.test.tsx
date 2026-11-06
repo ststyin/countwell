@@ -25,15 +25,16 @@ function render(hidden = false, source = ledger) {
 }
 
 describe('investment holding presentation', () => {
-  it('shows buy cost while collapsed, and unit price, cost and shares together for each lot', () => {
+  it('shows total shares beside the lot heading and the three metrics for each lot', () => {
     const html = render()
     const section = html.slice(html.indexOf('class="panel investment-panel"'))
     const summary = section.match(/<summary[^>]*>(.*?)<\/summary>/)?.[1] ?? ''
     expect(summary).toContain('FUND')
     expect(summary).toContain('12.00')
-    expect(summary).toContain('买入成本')
-    expect(summary).toContain('8.27')
+    expect(summary).not.toContain('买入成本')
+    expect(section).not.toContain('持有份额')
     const details = section.slice(section.indexOf('investment-item-detail'))
+    expect(details.match(/<div class="holding-lots-heading">(.*?)<\/div>/)?.[1]).toContain('4.00 份')
     const lotMetrics = details.match(/<dl class="holding-lot-metrics">(.*?)<\/dl>/)?.[1] ?? ''
     expect([...lotMetrics.matchAll(/<dt>(.*?)<\/dt>/g)].map(match => match[1])).toEqual(['单价', '成本', '份额'])
     expect(details).toContain('1.2345')
@@ -94,7 +95,11 @@ describe('investment holding presentation', () => {
     const summary = html.slice(html.indexOf('class="panel investment-panel"')).match(/<summary[^>]*>(.*?)<\/summary>/)?.[1] ?? ''
     for (const value of ['累计盈亏', '-60.00', '-20.00%']) expect(summary).toContain(value)
     for (const value of ['已实现盈亏', '持仓浮动盈亏', '持仓盈亏']) expect(html).not.toContain(value)
-    for (const value of ['累计投入', '300.00', '卖出净收回', '120.00', '净投入', '180.00', '回本参考净值', '18.0000']) expect(html).toContain(value)
+    const details = html.slice(html.indexOf('investment-item-detail'))
+    for (const value of ['累计投入', '卖出净收回', '净投入']) expect(details).not.toContain(value)
+    const quotes = details.slice(details.indexOf('holding-quote-grid'), details.indexOf('holding-lots-heading'))
+    expect([...quotes.matchAll(/<div><span>(.*?)<\/span>/g)].map(match => match[1])).toEqual(['回本参考净值', '平均持仓单价', '最新净值'])
+    expect(quotes).toContain('18.0000')
     const hidden = render(true, source)
     for (const value of ['-60.00', '18.0000', '-20.00%', 'income-tone', 'expense-tone']) expect(hidden).not.toContain(value)
   })
@@ -108,12 +113,12 @@ describe('investment holding presentation', () => {
     for (const value of ['-0.00', '+0.00', 'income-tone', 'expense-tone']) expect(html).not.toContain(value)
   })
 
-  it('keeps buy cost visible if the market price is missing', () => {
+  it('keeps lot costs visible if the market price is missing', () => {
     const missing = render(false, { ...ledger, prices: [] })
     const missingSummary = missing.slice(missing.indexOf('class="panel investment-panel"')).match(/<summary[^>]*>(.*?)<\/summary>/)?.[1] ?? ''
     expect(missingSummary).toContain('缺少报价')
-    expect(missingSummary).toContain('8.27')
-    expect(missingSummary).toContain('买入成本')
     expect(missingSummary).toContain('—')
+    expect(missing).toContain('<dt>成本</dt>')
+    expect(missing).toContain('7.04')
   })
 })
