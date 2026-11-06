@@ -8,6 +8,11 @@ export function formatAmount(value: string | number, decimals = 2): string {
   return integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction ? `.${fraction}` : '')
 }
 
+export function formatShares(value: string): string {
+  const rounded = new Decimal(value).toDecimalPlaces(4)
+  return formatAmount(rounded.toFixed(), Math.max(2, rounded.decimalPlaces()))
+}
+
 export function monthLabel(month: string): string {
   const [year, number] = month.split('-')
   return `${year} 年 ${Number(number)} 月`

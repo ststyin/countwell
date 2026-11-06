@@ -2,7 +2,7 @@ import { Fragment, useContext } from 'react'
 import { ArrowRight, ChevronDown, CircleAlert } from 'lucide-react'
 import type { Activity, ActivityAmount } from '../domain/types'
 import { CategoryIcon, DisplayContext, EmptyState, Money } from './ui'
-import { formatAmount, shortDate } from '../lib/format'
+import { formatAmount, formatShares, shortDate } from '../lib/format'
 
 export const kindLabels = { income: '收入', expense: '支出', refund: '退款', transfer: '转账', investment: '投资' }
 
@@ -20,7 +20,7 @@ function InvestmentDetails({ settlement, primaryCash }: { settlement: Settlement
     {settlement.trades.map(trade => {
       const name = settlement.trades.length === 1 ? '' : `${trade.commodity} ${trade.direction === 'buy' ? '买入' : '卖出'} `
       return <Fragment key={JSON.stringify([trade.account, trade.commodity, trade.direction])}>
-        <div><dt>{name}份额</dt><dd><Money amount={trade.units} decimals={4} /> 份</dd></div>
+        <div><dt>{name}份额</dt><dd><span className="money" aria-label={hidden ? '份额已隐藏' : undefined}>{hidden ? '••••' : formatShares(trade.units)}</span> 份</dd></div>
         {trade.price && <div><dt>{name}单价</dt><dd><Money amount={trade.price.amount} decimals={4} /> {trade.price.currency === 'CNY' ? '元' : trade.price.currency}</dd></div>}
       </Fragment>
     })}
@@ -35,22 +35,28 @@ function InvestmentDetails({ settlement, primaryCash }: { settlement: Settlement
 
 function LedgerDetails({ transaction: tx, usesWeight }: { transaction: Activity; usesWeight: boolean }) {
   const { hidden } = useContext(DisplayContext)
+  const settlement = tx.investmentSettlement
   const rawAmount = (amount: string) => <span className="money">{hidden ? '••••' : amount}</span>
+  const unitPrice = (amount: string) => settlement ? <Money amount={amount} decimals={4} /> : rawAmount(amount)
   return <>
     <div className="transaction-detail-header"><span>{tx.payee.trim() || '未填写'}</span><span>{tx.flag === '!' ? '待核对' : tx.flag === '*' ? '已确认' : `交易标记：${tx.flag}`}</span></div>
     {tx.kind === 'transfer' && tx.fromAccount && <p className="transfer-description">{tx.fromAccount}<ArrowRight size={13} />{tx.toAccount}</p>}
-    {!tx.investmentSettlement && <div className="posting-header"><span>复式分录</span></div>}
-    <div className="posting-list">{tx.postings.map((posting, index) => <div className="posting-row" key={index}>
-      <span className="posting-account"><code>{posting.account}</code>
-        {posting.flag && <small className="posting-cost">分录标记：{posting.flag}</small>}
-        {posting.cost && <small className="posting-cost">每份成本 {rawAmount(posting.cost.amount)} {posting.cost.currency}{posting.cost.date ? ` · ${posting.cost.date}` : ''}{posting.cost.label ? ` · ${posting.cost.label}` : ''}</small>}
-        {posting.price && <small className="posting-cost">交易单价 {rawAmount(posting.price.amount)} {posting.price.currency}</small>}
-        {posting.weight && <small className="posting-cost">记账权重 {rawAmount(posting.weight.amount)} {posting.weight.currency}</small>}
-      </span><span>{rawAmount(posting.amount)} <small>{posting.currency}</small></span>
-    </div>)}</div>
+    {!settlement && <div className="posting-header"><span>复式分录</span></div>}
+    <div className="posting-list">{tx.postings.map((posting, index) => {
+      const shares = settlement?.trades.some(trade => trade.commodity === posting.currency)
+      const amount = settlement ? (shares ? formatShares(posting.amount) : formatAmount(posting.amount)) : posting.amount
+      return <div className="posting-row" key={index}>
+        <span className="posting-account"><code>{posting.account}</code>
+          {posting.flag && <small className="posting-cost">分录标记：{posting.flag}</small>}
+          {posting.cost && <small className="posting-cost">每份成本 {unitPrice(posting.cost.amount)} {posting.cost.currency}{posting.cost.date ? ` · ${posting.cost.date}` : ''}{posting.cost.label ? ` · ${posting.cost.label}` : ''}</small>}
+          {posting.price && <small className="posting-cost">交易单价 {unitPrice(posting.price.amount)} {posting.price.currency}</small>}
+          {!settlement && posting.weight && <small className="posting-cost">记账权重 {rawAmount(posting.weight.amount)} {posting.weight.currency}</small>}
+        </span><span>{rawAmount(amount)} <small>{posting.currency}</small></span>
+      </div>
+    })}</div>
     {tx.tags.length > 0 && <div className="transaction-tags">{tx.tags.map(tag => <span key={tag}>#{tag}</span>)}</div>}
     {tx.links && tx.links.length > 0 && <div className="transaction-tags">{tx.links.map(link => <span key={link}>^{link}</span>)}</div>}
-    {usesWeight && <p className="detail-note">记账权重，非现金收付</p>}
+    {!settlement && usesWeight && <p className="detail-note">记账权重，非现金收付</p>}
   </>
 }
 

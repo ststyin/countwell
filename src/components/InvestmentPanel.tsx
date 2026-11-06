@@ -4,7 +4,7 @@ import Decimal from 'decimal.js'
 import { getTransactions } from '../domain'
 import type { AccountBalance, Ledger, LedgerAccount } from '../domain/types'
 import { DisplayContext, EmptyState, Money, SectionTitle } from './ui'
-import { formatAmount } from '../lib/format'
+import { formatAmount, formatShares } from '../lib/format'
 import TransactionList from './TransactionList'
 import type { summarizeInvestments } from '../domain'
 import { accountLabels } from '../lib/accountLabels'
@@ -63,11 +63,7 @@ function HoldingItem({ holding, name, accountLabel, onAccount, today }: { holdin
   const quote = holding.lots[0]
   const date = quoteDate(holding)
   const lots = allLots ? holding.lots : holding.lots.slice(0, 5)
-  const shares = (value: string) => {
-    if (hidden) return '••••'
-    const rounded = new Decimal(value).toDecimalPlaces(4)
-    return formatAmount(rounded.toFixed(), Math.max(2, rounded.decimalPlaces()))
-  }
+  const shares = (value: string) => hidden ? '••••' : formatShares(value)
   return <details className="investment-item holding-item">
     <summary className="investment-item-summary">
       <span className="account-avatar investment-avatar"><TrendingUp size={21} strokeWidth={1.6} /></span>
