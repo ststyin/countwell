@@ -65,7 +65,6 @@ export function AccountFlowPanel({ ledger, month, cycle, mode }: { ledger: Ledge
         <span className="stat-label"><span className="stat-icon gold-tone"><Icon size={18} /></span><span className="payment-spending-name">{labels.get(row.account) ?? row.account}</span>{row.currency !== 'CNY' && <span className="unit-label">{row.currency}</span>}</span>
         <Money amount={row.amount} currency={row.currency} className="stat-amount" symbol />
         {row.amount === null && <small className="payment-spending-unknown">金额待确认</small>}
-        {row.amount !== null && 'includesInvestmentIncome' in row && row.includesInvestmentIncome === true && <small className="payment-spending-unknown">含投资盈亏</small>}
       </a>
     })}</div> : <EmptyState title={mode === 'income' ? '本期暂无收入账户' : '本期暂无支出账户'} />}
   </section>

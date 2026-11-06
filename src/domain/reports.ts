@@ -1,9 +1,14 @@
 import Decimal from 'decimal.js';
 import type { AccountBalance, AccountReport, Activity, ActivityAmount, BillingCycle, PaymentAccountSpending, InvestmentPosition, Ledger, LedgerTransaction, Overview, TransactionQuery, TransactionKind } from './types';
 import { reportPeriod } from './period';
-import { accountKind, arithmetic, costUnits, label, text } from './report-values';
+import { accountKind, arithmetic, costUnits, isInvestmentGainAccount, label, text } from './report-values';
 export { monthBounds } from './period';
 export { isInvestmentAccount, summarizeInvestments } from './investments';
+
+function reportingKind(ledger: Ledger, account: string) {
+  const kind = accountKind(ledger, account);
+  return kind === 'income' && isInvestmentGainAccount(account) ? 'investment' : kind;
+}
 
 function moneyCurrencies(ledger: Ledger): string[] {
   const goods = costUnits(ledger);
@@ -25,7 +30,7 @@ function flowForPeriod(ledger: Ledger, month: string, currency: string, D: typeo
   const goods = costUnits(ledger, end);
   let income = new D(0), expense = new D(0), supported = true;
   for (const transaction of transactions) for (const posting of transaction.postings) {
-    const kind = accountKind(ledger, posting.account);
+    const kind = reportingKind(ledger, posting.account);
     if (kind !== 'income' && kind !== 'expense') continue;
     const relevant = posting.currency === currency || posting.cost?.currency === currency || posting.price?.currency === currency;
     if (relevant && (posting.cost || posting.price || goods.has(posting.currency))) supported = false;
@@ -47,7 +52,7 @@ export function getOverview(ledger: Ledger, month: string, currency = 'CNY', cyc
   const expenses = new Map<string, Decimal>(), incomes = new Map<string, Decimal>();
   if (current.supported) for (const transaction of current.transactions) for (const posting of transaction.postings) {
     if (posting.currency !== currency) continue;
-    const kind = accountKind(ledger, posting.account);
+    const kind = reportingKind(ledger, posting.account);
     if (kind === 'expense') {
       expenses.set(posting.account, (expenses.get(posting.account) ?? new D(0)).plus(posting.amount));
       daily.set(transaction.date, daily.get(transaction.date)!.plus(posting.amount));
@@ -67,26 +72,29 @@ export function getOverview(ledger: Ledger, month: string, currency = 'CNY', cyc
 }
 
 function activityAmounts(ledger: Ledger, transaction: LedgerTransaction, D: typeof Decimal): ActivityAmount[] {
-  const groups = new Map<string, { amount: Decimal; currency: string; type: 'income' | 'expense'; basis: 'units' | 'weight' }>();
-  const add = (type: 'income' | 'expense', amount: string, currency: string, basis: 'units' | 'weight') => {
+  type FlowKind = 'income' | 'expense' | 'investment';
+  const groups = new Map<string, { amount: Decimal; currency: string; type: FlowKind; basis: 'units' | 'weight' }>();
+  const add = (type: FlowKind, amount: string, currency: string, basis: 'units' | 'weight') => {
     const key = `${type}\0${currency}\0${basis}`;
     const previous = groups.get(key);
     groups.set(key, { type, currency, basis, amount: (previous?.amount ?? new D(0)).plus(amount) });
   };
   for (const posting of transaction.postings) {
-    const kind = accountKind(ledger, posting.account);
-    if (kind !== 'income' && kind !== 'expense') continue;
-    add(kind, posting.amount, posting.currency, 'units');
+    const type = reportingKind(ledger, posting.account);
+    if (type !== 'income' && type !== 'expense' && type !== 'investment') continue;
+    add(type, posting.amount, posting.currency, 'units');
     if (posting.cost || posting.price) {
       const annotation = posting.cost ?? posting.price!;
       const weight = posting.weight ?? { amount: new D(posting.amount).times(annotation.amount).toFixed(), currency: annotation.currency };
-      if (weight.currency !== posting.currency || !new D(weight.amount).equals(posting.amount)) add(kind, weight.amount, weight.currency, 'weight');
+      if (weight.currency !== posting.currency || !new D(weight.amount).equals(posting.amount)) add(type, weight.amount, weight.currency, 'weight');
     }
   }
   const amounts: ActivityAmount[] = [...groups.values()].map(group => {
-    const signed = group.type === 'income' ? group.amount.negated() : group.amount;
-    const kind = group.type === 'income' ? 'income' : signed.isNegative() ? 'refund' : 'expense';
-    return { amount: text(signed.abs()), currency: group.currency, direction: group.type === 'income' ? signed.isNegative() ? 'out' : 'in' : signed.isNegative() ? 'in' : 'out', kind, basis: group.basis };
+    const expense = group.type === 'expense';
+    const signed = expense ? group.amount : group.amount.negated();
+    const kind = expense && signed.isNegative() ? 'refund' : group.type;
+    const direction = (expense ? signed.isNegative() : !signed.isNegative()) ? 'in' : 'out';
+    return { amount: text(signed.abs()), currency: group.currency, direction, kind, basis: group.basis };
   });
   const booked = transaction.postings.filter(posting => posting.cost && ['asset', 'liability'].includes(accountKind(ledger, posting.account) ?? ''));
   for (const currency of new Set(booked.map(posting => posting.cost!.currency))) {
@@ -111,9 +119,13 @@ function activity(ledger: Ledger, transaction: LedgerTransaction, amounts: Activ
   const candidates = selected ? amounts.filter(amount => amount.currency === selected) : amounts;
   const primary = candidates.find(amount => amount.kind === preferred) ?? candidates[0] ?? amounts[0];
   const kind = primary.kind;
-  const corresponding = transaction.postings.filter(posting => posting.currency === primary.currency && accountKind(ledger, posting.account) === (kind === 'income' ? 'income' : 'expense'));
+  const corresponding = transaction.postings.filter(posting => posting.currency === primary.currency && reportingKind(ledger, posting.account) === (kind === 'income' ? 'income' : 'expense'));
   let category = kind === 'income' ? primary.direction === 'out' ? '收入冲回' : corresponding.length === 1 ? label(ledger, corresponding[0].account) : '多项收入' : kind === 'expense' || kind === 'refund' ? corresponding.length === 1 ? label(ledger, corresponding[0].account) : '多项支出' : kind === 'investment' ? '投资买入' : '账户转账';
-  if (kind === 'investment' && transaction.postings.filter(posting => posting.cost).every(posting => new D(posting.amount).isNegative())) category = '投资卖出';
+  if (kind === 'investment') {
+    const booked = transaction.postings.filter(posting => posting.cost);
+    if (!booked.length) category = '投资盈亏';
+    else if (booked.every(posting => new D(posting.amount).isNegative())) category = '投资卖出';
+  }
   if (kind === 'transfer' && transaction.postings.some(posting => accountKind(ledger, posting.account) === 'liability')) {
     const liabilityChanges = transaction.postings.filter(posting => accountKind(ledger, posting.account) === 'liability' && posting.currency === primary.currency);
     category = liabilityChanges.every(posting => new D(posting.amount).isPositive()) ? '负债还款' : liabilityChanges.every(posting => new D(posting.amount).isNegative()) ? '借款或负债增加' : '负债变动';
@@ -133,13 +145,13 @@ function isCreditCard(ledger: Ledger, account: string): boolean {
     && account.split(':').slice(1).some(part => /^(creditcard|credit-card|credit_card|credit|card|cc|信用卡)$/i.test(part));
 }
 
-type AccountContribution = { account: string; currency: string; amount: Decimal | null; settlement?: Activity['investmentSettlement'] };
-type PaymentContribution = AccountContribution & { direction: 'expense' | 'refund' };
+type AccountContribution = { account: string; currency: string; amount: Decimal | null };
+type PaymentContribution = AccountContribution & { direction: 'expense' | 'refund'; settlement?: Activity['investmentSettlement'] };
 
 /** Attribute charges and refunds to their payment accounts, excluding transfers. */
 function paymentContributions(ledger: Ledger, transaction: LedgerTransaction, D: typeof Decimal): PaymentContribution[] {
   const expenses = transaction.postings.filter(posting => accountKind(ledger, posting.account) === 'expense');
-  const incomes = transaction.postings.filter(posting => accountKind(ledger, posting.account) === 'income');
+  const incomes = transaction.postings.filter(posting => reportingKind(ledger, posting.account) === 'income');
   if (!expenses.length && !incomes.length) return [];
   if (expenses.length) {
     const sale = singleAccountSale(ledger, transaction, D);
@@ -229,14 +241,8 @@ type IncomeContribution = AccountContribution & { direction: 'in' | 'out' };
 
 /** Attribute income to financial accounts without treating transfers or expense refunds as income. */
 function receivingContributions(ledger: Ledger, transaction: LedgerTransaction, D: typeof Decimal): IncomeContribution[] {
-  const incomes = transaction.postings.filter(posting => accountKind(ledger, posting.account) === 'income');
+  const incomes = transaction.postings.filter(posting => reportingKind(ledger, posting.account) === 'income');
   if (!incomes.length) return [];
-  const sale = singleAccountSale(ledger, transaction, D);
-  if (sale) {
-    const amount = incomes.reduce((sum, posting) => sum.minus(posting.amount), new D(0));
-    return amount.isZero() ? [] : [{ account: sale.cash.account, currency: sale.cash.currency, amount,
-      direction: amount.isNegative() ? 'out' : 'in', settlement: sale.settlement }];
-  }
   const financial = transaction.postings.filter(posting => ['asset', 'liability'].includes(accountKind(ledger, posting.account) ?? ''));
   const groups = new Map<string, typeof financial>();
   for (const posting of financial) {
@@ -265,10 +271,10 @@ function receivingContributions(ledger: Ledger, transaction: LedgerTransaction, 
 }
 
 /** Net income received by each financial account, in each original currency. */
-export function getReceivingAccountIncome(ledger: Ledger, month: string, cycle?: BillingCycle): (PaymentAccountSpending & { includesInvestmentIncome?: true })[] {
+export function getReceivingAccountIncome(ledger: Ledger, month: string, cycle?: BillingCycle): PaymentAccountSpending[] {
   const { D } = arithmetic(ledger);
   const { start, end } = reportPeriod(month, cycle);
-  const totals = new Map<string, { account: string; currency: string; amount: Decimal; unavailable: boolean; transactionCount: number; includesInvestmentIncome?: true }>();
+  const totals = new Map<string, { account: string; currency: string; amount: Decimal; unavailable: boolean; transactionCount: number }>();
   for (const transaction of ledger.transactions) {
     if (transaction.date < start || transaction.date > end) continue;
     for (const item of receivingContributions(ledger, transaction, D)) {
@@ -276,7 +282,6 @@ export function getReceivingAccountIncome(ledger: Ledger, month: string, cycle?:
       const row = totals.get(key) ?? { account: item.account, currency: item.currency, amount: new D(0), unavailable: false, transactionCount: 0 };
       if (item.amount === null) row.unavailable = true;
       else row.amount = row.amount.plus(item.amount);
-      if (item.settlement) row.includesInvestmentIncome = true;
       row.transactionCount++;
       totals.set(key, row);
     }
@@ -297,9 +302,8 @@ export function getReceivingAccountIncomeTransactions(ledger: Ledger, query: Tra
       const amounts = activityAmounts(ledger, transaction, D);
       const row = activity(ledger, transaction, amounts, query.currency, 'income');
       const result: Activity = { ...row, kind: 'income', direction: item.direction, currency: item.currency,
-        category: item.settlement ? '投资卖出' : item.direction === 'out' ? '收入冲回' : row.category,
-        amount: item.amount === null ? row.amount : text(item.amount.abs()), amountUnavailable: item.amount === null,
-        amountBasis: 'units', amounts: item.settlement ? amounts : [], investmentSettlement: item.settlement };
+        category: item.direction === 'out' ? '收入冲回' : row.category,
+        amount: item.amount === null ? row.amount : text(item.amount.abs()), amountUnavailable: item.amount === null, amountBasis: 'units', amounts: [] };
       return !search || `${result.payee}\n${result.narration}\n${result.category}\n${result.accountLabel}\n${result.postings.map(posting => label(ledger, posting.account)).join('\n')}`.toLowerCase().includes(search) ? [result] : [];
     }).reverse();
 }
@@ -331,7 +335,7 @@ function investmentSettlement(ledger: Ledger, transaction: LedgerTransaction, D:
   })) };
 }
 
-/** A same-currency sale with one cash destination can attribute its gains and fees without guessing. */
+/** A same-currency sale with one cash destination can attribute its fees without guessing. */
 function singleAccountSale(ledger: Ledger, transaction: LedgerTransaction, D: typeof Decimal) {
   const settlement = investmentSettlement(ledger, transaction, D);
   if (settlement?.action !== 'sell' || settlement.cashFlows.length !== 1) return;

@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import TransactionList from '../src/components/TransactionList'
 import { DisplayContext } from '../src/components/ui'
-import { getOverview, getPaymentAccountSpendingTransactions, getReceivingAccountIncomeTransactions, getTransactions } from '../src/domain'
+import { getAccounts, getOverview, getPaymentAccountSpendingTransactions, getReceivingAccountIncomeTransactions, getTransactions } from '../src/domain'
 import type { Ledger } from '../src/domain/types'
 import { AccountFlowPanel } from '../src/pages/OverviewPage'
 
@@ -22,7 +22,7 @@ const ledger: Ledger = {
 }
 
 function summary(snapshot = ledger) {
-  const html = renderToStaticMarkup(<TransactionList transactions={getTransactions(snapshot, { kind: 'income' })} />)
+  const html = renderToStaticMarkup(<TransactionList transactions={getTransactions(snapshot, { kind: 'investment' })} />)
   return html.slice(html.indexOf('<summary>'), html.indexOf('</summary>'))
 }
 
@@ -39,7 +39,9 @@ describe('investment transaction presentation', () => {
     expect(summary()).not.toContain('收入冲回')
     expect(summary()).toContain('transaction-amount income-tone">+<span class="money ">4,091.48')
     expect(summary()).toContain('已实现亏损 −808.52')
-    expect(getOverview(ledger, '2026-11').income).toBe('-808.52')
+    expect(getOverview(ledger, '2026-11')).toMatchObject({ income: '0', surplus: '0', incomeCategories: [] })
+    expect(getTransactions(ledger, { kind: 'income', account: 'Assets:Alipay' })).toEqual([])
+    expect(getAccounts(ledger).cash).toBe('4091.48')
   })
   it('uses the net cash posting after fees, retaining gross gains and cost separately', () => {
     const snapshot: Ledger = { ...ledger, transactions: [{ ...ledger.transactions[0], postings: [
@@ -56,17 +58,22 @@ describe('investment transaction presentation', () => {
     expect(html).not.toMatch(/\d+\.\d{3,}/)
     expect(getOverview(snapshot, '2026-11').expense).toBe('19.9')
   })
-  it('attributes booked sale gains and fees to the cash account in both overview drilldowns', () => {
+  it('keeps sale gains and losses out of the income drilldown while reporting actual fees', () => {
     const snapshot: Ledger = { ...ledger, transactions: [...ledger.transactions, { ...ledger.transactions[0], id: 'sale-with-fee', postings: [
       { account: 'Assets:Fund', amount: '-8', currency: 'FUND', cost: { amount: '40', currency: 'CNY' }, price: { amount: '55', currency: 'CNY' } },
       { account: 'Assets:Fund', amount: '-2', currency: 'FUND', cost: { amount: '40', currency: 'CNY' }, price: { amount: '55', currency: 'CNY' } },
       { account: 'Assets:Alipay', amount: '530', currency: 'CNY' },
       { account: 'Expenses:Investment:Fees', amount: '20', currency: 'CNY' },
       { account: 'Income:CapitalGains', amount: '-150', currency: 'CNY' },
+    ] }, { ...ledger.transactions[0], id: 'salary', narration: '工资', postings: [
+      { account: 'Assets:Alipay', amount: '100', currency: 'CNY' },
+      { account: 'Income:Salary', amount: '-100', currency: 'CNY' },
     ] }] }
+    expect(getOverview(snapshot, '2026-11')).toMatchObject({ income: '100', expense: '20', surplus: '80',
+      incomeCategories: [{ account: 'Income:Salary', name: 'Salary', amount: '100', share: 100 }] })
     const income = renderToStaticMarkup(<AccountFlowPanel ledger={snapshot} month="2026-11" mode="income" />)
-    expect(income).toContain('-658.52')
-    expect(income).toContain('含投资盈亏')
+    expect(income).toContain('100.00')
+    expect(income).not.toContain('含投资盈亏')
     const expense = renderToStaticMarkup(<AccountFlowPanel ledger={snapshot} month="2026-11" mode="expense" />)
     expect(expense).toContain('20.00')
     for (const panel of [income, expense]) {
@@ -75,16 +82,13 @@ describe('investment transaction presentation', () => {
       expect(panel).not.toContain('金额待确认')
     }
     const query = { month: '2026-11', account: 'Assets:Alipay', currency: 'CNY' }
-    const incomeDetails = renderToStaticMarkup(<TransactionList transactions={getReceivingAccountIncomeTransactions(snapshot, query)} />)
-    expect(incomeDetails).toContain('支付宝到账')
-    expect(incomeDetails).toContain('4,091.48')
-    expect(incomeDetails).toContain('已实现亏损 −808.52')
+    expect(getReceivingAccountIncomeTransactions(snapshot, query).map(row => row.id)).toEqual(['salary'])
     const expenseDetails = renderToStaticMarkup(<TransactionList transactions={getPaymentAccountSpendingTransactions(snapshot, query)} />)
     expect(expenseDetails).toContain('支付宝到账')
     expect(expenseDetails).toContain('支出 −20.00')
   })
   it('preserves exact postings in the details and hides all amounts in privacy mode', () => {
-    const rows = getTransactions(ledger, { kind: 'income' })
+    const rows = getTransactions(ledger, { kind: 'investment' })
     const html = renderToStaticMarkup(<TransactionList transactions={rows} />)
     expect(html).toContain('490.0000000000000000000000000000000052237')
     const hidden = renderToStaticMarkup(<DisplayContext.Provider value={{ hidden: true, currency: 'CNY' }}><TransactionList transactions={rows} /></DisplayContext.Provider>)

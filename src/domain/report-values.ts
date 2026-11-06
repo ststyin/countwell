@@ -13,6 +13,10 @@ export function accountKind(ledger: Ledger, name: string): AccountKind | undefin
   return root === roots.assets ? 'asset' : root === roots.liabilities ? 'liability' : root === roots.income ? 'income' : root === roots.expenses ? 'expense' : root === roots.equity ? 'equity' : undefined;
 }
 
+export function isInvestmentGainAccount(name: string): boolean {
+  return /(?:^|:)(?:CapitalGains?|Gains?|PnL|Profit|投资收益|投资损益|资本利得)(?::|$)/i.test(name);
+}
+
 export function arithmetic(ledger: Ledger) {
   const numbers = ledger.transactions.flatMap(transaction => transaction.postings.flatMap(posting => [posting.amount, posting.cost?.amount, posting.price?.amount].filter((value): value is string => value !== undefined))).concat(ledger.prices.map(price => price.amount));
   let integerDigits = 1, scale = 0;

@@ -1,7 +1,7 @@
 import Decimal from 'decimal.js';
 import type { AccountReport, InvestmentPosition, Ledger, LedgerTransaction } from './types';
 import { reportPeriod } from './period';
-import { accountKind, arithmetic, costUnits, text } from './report-values';
+import { accountKind, arithmetic, costUnits, isInvestmentGainAccount, text } from './report-values';
 
 const holdingKey = (account: string, commodity: string) => JSON.stringify([account, commodity]);
 function feeAccount(name: string) {
@@ -60,7 +60,7 @@ export function summarizeInvestments(ledger: Ledger, report: AccountReport, curr
       // shopping expense for investment proceeds or a commission.
       if (others.some(posting => {
         const kind = accountKind(ledger, posting.account);
-        return !kind || (kind === 'income' && (buying || !/(?:^|:)(?:CapitalGains?|Gains?|PnL|Profit|投资收益|投资损益|资本利得)(?::|$)/i.test(posting.account)))
+        return !kind || (kind === 'income' && (buying || !isInvestmentGainAccount(posting.account)))
           || (kind === 'expense' && !feeAccount(posting.account));
       })) return null;
       const settlement = sum(settlements.map(posting => posting.amount));

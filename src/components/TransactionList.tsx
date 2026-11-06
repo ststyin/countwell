@@ -19,10 +19,10 @@ export default function TransactionList({ transactions }: { transactions: Activi
     const displayKind = settlement ? 'investment' : tx.kind
     const sign = tx.amountUnavailable ? '' : direction === 'out' ? '−' : direction === 'in' ? '+' : ''
     const tradeLabel = settlement?.action === 'sell' ? '投资卖出' : settlement?.action === 'buy' ? '投资买入' : '持仓变动'
-    const label = settlement ? `${tradeLabel}${primaryCash ? ` · ${primaryCash.accountLabel}${primaryCash.direction === 'in' ? '到账' : '付款'}` : ''}` : tx.kind === 'refund' ? '冲减支出' : tx.kind === 'transfer' ? '账户转账' : tx.kind === 'investment' ? '持仓变动' : tx.category
+    const label = settlement ? `${tradeLabel}${primaryCash ? ` · ${primaryCash.accountLabel}${primaryCash.direction === 'in' ? '到账' : '付款'}` : ''}` : tx.kind === 'refund' ? '冲减支出' : tx.kind === 'transfer' ? '账户转账' : tx.category
     const primaryIndex = tx.amounts?.findIndex(amount => amount.amount === tx.amount && amount.currency === tx.currency && amount.direction === tx.direction && amount.kind === tx.kind && amount.basis === tx.amountBasis) ?? -1
     const otherAmounts = tx.amounts?.filter((_, index) => primaryCash || index !== primaryIndex) ?? []
-    const amountLabel = (amount: ActivityAmount) => settlement && amount.kind === 'income'
+    const amountLabel = (amount: ActivityAmount) => amount.kind === 'investment' && amount.direction !== 'internal'
       ? amount.direction === 'out' ? '已实现亏损' : '已实现盈利'
       : settlement && amount.kind === 'investment' && amount.basis === 'weight'
       ? settlement.action === 'sell' ? '卖出成本' : settlement.action === 'buy' ? '买入成本' : '持仓成本'

@@ -105,8 +105,8 @@ describe('official normalized snapshots', () => {
     expect(report).toMatchObject({ cash: '1035', investments: '93', netWorth: '1128' });
     expect(report.positions).toHaveLength(1);
     expect(report.positions[0]).toMatchObject({ units: '3', cost: '75', costDate: '2026-09-20', costLabel: 'second', marketValue: '93', unrealizedPnl: '18' });
-    expect(summarizeInvestments(snapshot, report, 'CNY').holdings[0]).toMatchObject({ costs: [{ currency: 'CNY', amount: '75' }], marketValue: '93', unrealizedPnl: '18' });
-    expect(getOverview(snapshot, '2026-10')).toMatchObject({ income: '110', expense: '0', flowSupported: true });
+    expect(summarizeInvestments(snapshot, report, 'CNY').holdings[0]).toMatchObject({ costs: [{ currency: 'CNY', amount: '75' }], marketValue: '93', unrealizedPnl: '18', cumulativePnl: '128' });
+    expect(getOverview(snapshot, '2026-10')).toMatchObject({ income: '0', expense: '0', surplus: '0', flowSupported: true });
   });
 
   it('summarizes each holding across lots without combining currencies or inventing missing prices', () => {
